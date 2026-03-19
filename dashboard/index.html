@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Fair-Ed: AI Intervention Dashboard</title>
+    <link rel="stylesheet" href="style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="background-shapes">
+        <div class="shape shape-1"></div>
+        <div class="shape shape-2"></div>
+        <div class="shape shape-3"></div>
+    </div>
+
+    <div class="app-container">
+        <!-- Language Toggle -->
+        <div class="lang-toggle">
+            <button id="lang-en" class="active">EN</button>
+            <button id="lang-tr">TR</button>
+        </div>
+
+        <header class="header">
+            <div class="logo">
+                <i class="fa-solid fa-graduation-cap"></i>
+                <h1 data-i18n="appTitle">Fair-Ed <span>Dashboard</span></h1>
+            </div>
+            <p data-i18n="appSubtitle">Causal AI Decision Support for Equitable Educational Interventions</p>
+        </header>
+
+        <main class="main-content">
+            <section class="student-selection panel glass">
+                <h2 data-i18n="selectTitle"><i class="fa-solid fa-user-graduate"></i> Select or Enter At-Risk Student</h2>
+                <div class="select-wrapper">
+                    <select id="student-select">
+                        <option value="" disabled selected data-i18n="optDefault">Select a scenario or enter custom student...</option>
+                        <option value="stu1" data-i18n="opt1">Student #1042 (Low SES, Frequent Absences)</option>
+                        <option value="stu2" data-i18n="opt2">Student #215 (High SES, Low Weekly Study Time)</option>
+                        <option value="custom" data-i18n="optCustom">➕ Enter Custom Student Data</option>
+                    </select>
+                    <i class="fa-solid fa-chevron-down select-icon"></i>
+                </div>
+
+                <!-- Custom Input Form (Hidden by Default) -->
+                <div id="custom-form" class="custom-form hidden">
+                    <h3 data-i18n="customFormTitle">Enter Student Metrics</h3>
+                    <div class="form-grid">
+                        <div class="form-group">
+                            <label data-i18n="lblAbsences">Absences (Days)</label>
+                            <input type="number" id="inp-absences" min="0" max="90" value="10">
+                        </div>
+                        <div class="form-group">
+                            <label data-i18n="lblStudy">Study Time (Hrs/Wk)</label>
+                            <input type="number" id="inp-study" min="0" max="40" value="2">
+                        </div>
+                        <div class="form-group">
+                            <label data-i18n="lblFree">Free Time (1-5)</label>
+                            <input type="number" id="inp-free" min="1" max="5" value="4">
+                        </div>
+                        <div class="form-group">
+                            <label data-i18n="lblSES">Socioeconomic Status (SES)</label>
+                            <select id="inp-ses">
+                                <option value="Low SES" data-i18n="sesLow">Low SES</option>
+                                <option value="Middle SES" data-i18n="sesMid">Middle SES</option>
+                                <option value="High SES" data-i18n="sesHigh">High SES</option>
+                            </select>
+                        </div>
+                    </div>
+                </div>
+                
+                <div id="student-profile" class="student-profile hidden">
+                    <div class="profile-header">
+                        <h3 data-i18n="currentObj">Current Academic State</h3>
+                    </div>
+                    <div class="stats-grid">
+                        <div class="stat-box">
+                            <span class="stat-label" data-i18n="statAbs">Absences</span>
+                            <span class="stat-value" id="cur-absences">14 Days</span>
+                        </div>
+                        <div class="stat-box">
+                            <span class="stat-label" data-i18n="statStu">Study Time</span>
+                            <span class="stat-value" id="cur-study">1 hr/wk</span>
+                        </div>
+                        <div class="stat-box">
+                            <span class="stat-label" data-i18n="statFre">Free Time</span>
+                            <span class="stat-value" id="cur-free">High (4/5)</span>
+                        </div>
+                        <div class="stat-box">
+                            <span class="stat-label">SES Group</span>
+                            <span class="stat-value tag-low" id="cur-ses">Low SES</span>
+                        </div>
+                    </div>
+                    
+                    <div class="prediction-box alert">
+                        <div class="pred-text">
+                            <h4 data-i18n="curPredTitle">Current Prediction: Failure Risk</h4>
+                            <p><span data-i18n="probPassText">Probability of Passing:</span> <strong class="danger-text" id="pass-prob">25%</strong></p>
+                        </div>
+                        <button id="run-ai-btn" class="primary-btn">
+                            <i class="fa-solid fa-wand-magic-sparkles"></i> <span data-i18n="btnRun">Generate Fair Recourse</span>
+                        </button>
+                    </div>
+                </div>
+            </section>
+
+            <section id="ai-processing" class="processing-panel hidden">
+                <div class="loader"></div>
+                <p data-i18n="loadingText">Solving Causal Constrained Optimization for Fair Recourse...</p>
+                <div class="progress-bar-container"><div class="progress-bar"></div></div>
+            </section>
+
+            <section id="recourse-result" class="result-panel panel glass hidden">
+                <div class="result-header">
+                    <h2><i class="fa-solid fa-check-circle success-text"></i> <span data-i18n="successTitle">Fair Pedagogical Intervention Recommended</span></h2>
+                    <div class="new-prediction">
+                        <span class="label" data-i18n="postInterv">Post-Intervention Probability:</span>
+                        <span class="value success-text" id="new-pass-prob">79%</span>
+                    </div>
+                </div>
+
+                <div class="action-plan">
+                    <h3 data-i18n="actionPlanTitle">Actionable Pathway for Student</h3>
+                    <p class="plan-desc" data-i18n="actionPlanDesc">The AI has identified the mathematically optimal and lowest-cost adjustments tailored to this student's socioeconomic capabilities to flip their prediction to 'Pass'.</p>
+                    
+                    <ul class="action-list" id="action-list">
+                        <!-- Populated by JS -->
+                    </ul>
+                </div>
+
+                <div class="fairness-metrics">
+                    <div class="metric">
+                        <i class="fa-solid fa-scale-balanced"></i>
+                        <span><span data-i18n="metricCost">Intervention Cost</span> ($\mu_A$): <strong id="recourse-cost">8.08</strong></span>
+                    </div>
+                    <div class="metric">
+                        <i class="fa-solid fa-shield-halved"></i>
+                        <span><span data-i18n="metricRFD">Recourse Fairness Diff. (RFD)</span>: <strong id="recourse-rfd">5.15</strong> <span data-i18n="metricOpt">(Optimal)</span></span>
+                    </div>
+                </div>
+                
+                <button id="reset-btn" class="secondary-btn" style="margin-top:20px; width: 100%;">
+                    <i class="fa-solid fa-rotate-right"></i> <span data-i18n="btnReset">Analyze Another Student</span>
+                </button>
+            </section>
+        </main>
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
