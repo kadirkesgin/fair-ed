@@ -14,14 +14,16 @@
 \usepackage[numbers]{natbib}
 \usepackage{url}
 \usepackage{xcolor}
+\usepackage{microtype}
 
 \newcommand{\hlbox}[1]{\colorbox{yellow!50}{#1}}
-\newcommand{\hlblock}[1]{\vspace{1mm}\noindent\colorbox{yellow!30}{\parbox{\dimexpr\textwidth-2\fboxsep\relax}{#1}}\vspace{1mm}}
+\newcommand{\hlblock}[1]{\vspace{1mm}\noindent\colorbox{yellow!30}{\parbox{\dimexpr\linewidth-2\fboxsep\relax}{\sloppy #1\par}}\vspace{1mm}}
+\newcommand{\hlcell}[1]{\colorbox{yellow!50}{\parbox{\dimexpr\linewidth-2\fboxsep\relax}{\raggedright #1}}}
 
 \setlength{\parindent}{0pt}
 \setlength{\parskip}{1\baselineskip}
 
-\title{\hlbox{DAG-informed actionable recourse for student academic performance prediction}}
+\title{\hlbox{\parbox{0.88\textwidth}{\centering DAG-informed actionable recourse for student academic performance prediction}}}
 
 \author{
     Kadir Kesgin\textsuperscript{1,*}, Funda U\u{g}urlu\textsuperscript{2} \\[3mm]
@@ -40,11 +42,12 @@
 \maketitle
 
 \begin{abstract}
+\sloppy
 Educational data mining has made substantial progress in predicting student academic performance, yet most studies remain focused on risk identification rather than model-based recourse design. Explainable AI methods can highlight influential predictors, but they do not necessarily specify which changes are causally meaningful, practically feasible, and equitable across student groups. This study proposes a DAG-informed actionable algorithmic recourse framework that moves beyond prediction-oriented early warning toward actionability-constrained educational decision support.
 
 Using the UCI Student Performance dataset (\textit{student-por.csv}, $N=649$), we evaluated student performance prediction without final grades ($G1/G2$) \hlbox{using 5-fold stratified cross-validation} (Accuracy: \hlbox{$0.8335 \pm 0.0156$}, ROC AUC: \hlbox{$0.7263 \pm 0.0556$}, Class Prevalence: $84.6\%$ pass, $15.4\%$ fail). We then implemented an actionability- and DAG-constrained recourse optimization pipeline across 10 random seeds to generate counterfactual recommendations under discrete UCI scale boundaries. Socioeconomic status (SES) was operationalized via a composite index combining parental education, family size, and digital access.
 
-Across multi-seed evaluation, the proposed framework produced valid recourse recommendations for an average of $11.5 \text{ out of } 12.1$ predicted failing students per test fold (validity rate \hlbox{$95.5\% \pm 4.7\%$}) while restricting interventions to plausible academic levers (e.g., non-decreasing study time and non-increasing absenteeism) drawn from a sampled directional candidate grid ($K=700$) of the full $9,400$-point discrete space $\mathcal{F}_{\text{discrete}}$. Average recourse distances under group-independent evaluation metrics were \hlbox{$\mu_L = 0.3408 \pm 0.1441$} for Low-SES students and \hlbox{$\mu_H = 0.2638 \pm 0.1633$} for High-SES students (seed-indexed \hlbox{$\text{RFD} = \mathbb{E}[|\mu_{L,s} - \mu_{H,s}|] = 0.1613 \pm 0.1038$}, macro group difference $|\bar{\mu}_L - \bar{\mu}_H| = 0.0771$). Furthermore, recommendations shifted model predictions, increasing the average model-predicted passing probability for failing students from \hlbox{$0.2866$ before recourse} to \hlbox{$0.5975$ after recourse}.
+Across multi-seed evaluation, the proposed framework produced valid recourse recommendations for an average of $11.5 \text{ out of } 12.1$ predicted failing students per test fold (validity rate \hlbox{$95.5\% \pm 4.7\%$}) while restricting interventions to plausible academic levers (e.g., non-decreasing study time and non-increasing absenteeism) drawn from a sampled directional candidate grid ($K=700$) of the full $9,400$-point discrete space $\mathcal{F}_{\text{discrete}}$. Average recourse distances under group-independent evaluation metrics were \hlbox{$\mu_L = 0.3408 \pm 0.1441$} for Low-SES students and \hlbox{$\mu_H = 0.2638 \pm 0.1633$} for High-SES students (seed-indexed \hlbox{$\text{RFD} = \mathbb{E}[|\mu_{L,s} - \mu_{H,s}|]$} \hlbox{$= 0.1613 \pm 0.1038$}, macro group difference $|\bar{\mu}_L - \bar{\mu}_H| = 0.0771$). Furthermore, recommendations shifted model predictions, increasing the average model-predicted passing probability for failing students from \hlbox{$0.2866$ before recourse} to \hlbox{$0.5975$ after recourse}.
 
 \hlblock{Constrained search raises recourse distance relative to unconstrained search while keeping high validity, and the observed probability shift is model-based decision-boundary crossing rather than evidence of educational effectiveness. Fairness weighting did not reduce group-independent distance beyond actionability constraints alone. Overall, model-based recourse in education highlights the trade-off between unconstrained optimization and actionable feasibility, demonstrating that responsible educational AI must evaluate the realistic constraints of recommended success pathways.}
 \end{abstract}
@@ -189,7 +192,7 @@ von K\"ugelgen et al. (2022) \cite{vonKugelgen2022}
 & \textbf{DAG-informed actionable recourse}
 & \textbf{Assumed DAG (no SCM)}
 & \textbf{Yes}
-& \textbf{\hlbox{Evaluated (no empirical gain)}}
+& \hlcell{\textbf{Evaluated (no empirical gain)}}
 & \textbf{Integrates student prediction, DAG constraints, and recourse evaluation in a unified framework.} \\
 
 \bottomrule
@@ -270,11 +273,15 @@ The full discrete feature space spans $\mathcal{F}_{\text{discrete}} = \mathcal{
 
 We evaluate five recourse conditions:
 
-1. \textbf{Unconstrained discrete search (DiCE-style)}:
+1. \textbf{Unconstrained discrete search (DiCE-style \cite{Mothilal2020})}:
 \begin{equation}
 \min_{\boldsymbol{\delta}} \mathcal{C}_{\text{unweighted}}(\boldsymbol{\delta}) \quad \text{s.t.} \quad f(\mathbf{x}_i + \boldsymbol{\delta}) \ge \tau, \quad (\mathbf{x}_i + \boldsymbol{\delta}) \in \mathcal{F}_{\text{discrete}}
 \end{equation}
-where features may shift in any direction under unweighted distance $\mathcal{C}_{\text{unweighted}}(\boldsymbol{\delta}) = \sum_{j \in \text{actionable}} \lambda_j |\delta_j|$.
+where features may shift in any direction under the unweighted distance
+\begin{equation}
+\mathcal{C}_{\text{unweighted}}(\boldsymbol{\delta})
+= \sum_{j \in \text{actionable}} \lambda_j |\delta_j|.
+\end{equation}
 
 2. \textbf{Actionability-constrained search (Ustun-aligned directional bounds)}:
 \begin{equation}
@@ -296,7 +303,7 @@ Joint actionability constraints and candidate scoring incorporating structural a
 \end{equation}
 where $\mathcal{C}_{\text{scoring}}(\boldsymbol{\delta}, \text{SES}_i) = \sum_{j \in \text{actionable}} w_j(\text{SES}_i) \lambda_j |\delta_j|$, with $w_{\text{abs}}(0) = 2.0$ and $w_{\text{abs}}(1) = 1.0$.
 
-5. \textbf{Manifold nearest-neighbor recourse baseline}:
+5. \textbf{Manifold nearest-neighbor recourse baseline (FACE-like graph manifold \cite{Poyiadzi2020})}:
 Finds the nearest passing instance in the training set graph manifold satisfying directional actionability bounds ($\delta_{\text{study}} \ge 0, \delta_{\text{abs}} \le 0$), evaluated over all passing instances in the training fold ($N_{\text{pass,train}} \approx 439$). The manifold baseline evaluates all $N_{\text{pass,train}} \approx 439$ passing training instances, whereas discrete search evaluates a student-specific candidate grid of $K=700$ directional vectors.
 
 \textbf{Candidate Selection and Tie-Breaking Rule}: If multiple valid candidate vectors satisfy $f(\mathbf{x}_i + \boldsymbol{\delta}) \ge \tau$ with identical minimal scoring cost, candidate selection breaks ties deterministically by selecting the candidate with (i)~smallest study time increase $\delta_{\text{study}}$, (ii)~smallest absolute absence change $|\delta_{\text{abs}}|$, and (iii)~first index in the pre-generated candidate grid.
@@ -322,16 +329,16 @@ Because fold-level cost variations exist across test splits, Jensen's inequality
 
 Predictive performance and recourse generation are implemented using a standardized, reproducible experimental protocol:
 \begin{enumerate}
-    \item \textbf{Classifier Configuration}: The underlying predictor $f(\mathbf{x})$ is a Gradient Boosting Classifier (\texttt{n\_estimators=100}, \texttt{max\_depth=3}, \texttt{learning\_rate=0.1}, \texttt{subsample=1.0}, \texttt{min\_samples\_split=2}, \texttt{loss='log\_loss'}) trained on 7 features ($\text{age}$, $\text{studytime}$, $\text{failures}$, $\text{absences}$, $\text{freetime}$, $\text{goout}$, $\text{SES}$).
+    \item \textbf{Classifier Configuration}: The underlying predictor $f(\mathbf{x})$ is a Gradient Boosting Classifier \cite{ChenGuestrin2016} (\path{n_estimators=100}, \path{max_depth=3}, \path{learning_rate=0.1}, \path{subsample=1.0}, \path{min_samples_split=2}, \path{loss='log_loss'}) trained on 7 features ($\text{age}$, $\text{studytime}$, $\text{failures}$, $\text{absences}$, $\text{freetime}$, $\text{goout}$, $\text{SES}$).
     \item \textbf{Preprocessing and Encoding}: Target outcome $y$ is binary pass ($G3 \ge 10$, prevalence $84.6\%$) vs fail ($G3 < 10$, $15.4\%$). Actionable and immutable features are preserved on their natural discrete scales without synthetic oversampling or continuous relaxation.
     \item \textbf{Held-Out Recourse Protocol}: For each of the 10 random seeds ($42 \dots 51$), the dataset ($N=649$) is partitioned into an $80\%$ stratified training split ($N_{\text{train}} \approx 519$) and a $20\%$ test split ($N_{\text{test}} = 130$). Classifiers are trained exclusively on the training fold. Recourse recommendations are generated and evaluated strictly for out-of-fold students predicted to fail in the held-out test fold ($N_{\text{fail}} \approx 12.1$ per test split).
-    \item \textbf{Software Environment}: All experiments are implemented in Python 3.11 using \texttt{scikit-learn} 1.8.0, \texttt{pandas} 2.3.3, \texttt{numpy} 1.26.4, and \texttt{scipy} 1.17.0.
+    \item \textbf{Software Environment}: All experiments use Python 3.11. The software stack comprises \path{scikit-learn} 1.8.0, \path{pandas} 2.3.3, \path{numpy} 1.26.4, and \path{scipy} 1.17.0.
 \end{enumerate}
 
 \section{Results}
 \label{sec:results}
 
-All empirical results are generated by the single official execution pipeline (\texttt{src/run\_experiments.py}) on \texttt{student-por.csv} ($N=649$).
+All empirical results are generated by the single official execution pipeline (\path{src/run_experiments.py}) on \path{student-por.csv} ($N=649$).
 
 \subsection{Predictive performance and population flow}
 
@@ -341,6 +348,8 @@ Table~\ref{tab:predictive_perf} reports 5-fold stratified cross-validation perfo
 \centering
 \caption{Predictive Performance Metrics (5-Fold Stratified Cross-Validation, mean $\pm$ SD)}
 \label{tab:predictive_perf}
+\footnotesize
+\setlength{\tabcolsep}{3pt}
 \begin{tabular}{lccccc}
 \toprule
 \textbf{Model} & \textbf{Accuracy} & \textbf{Precision} & \textbf{Recall} & \textbf{F1-Score} & \textbf{ROC AUC} \\
@@ -453,7 +462,7 @@ Figure~\ref{fig:prediction_reversal} shows model-predicted passing probabilities
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.90\linewidth]{outputs/figures/fig3_feature_shifts.png}
-    \caption{\hlbox{Actionable feature shifts for Proposed SES-Sensitive Difficulty-Weighted Recourse across original UCI discrete scales ($\delta_{\text{study}} \ge 0, \delta_{\text{abs}} \le 0$).}}
+    \caption{Actionable feature shifts for Proposed SES-Sensitive Difficulty-Weighted Recourse across original UCI discrete scales ($\delta_{\text{study}} \ge 0, \delta_{\text{abs}} \le 0$).}
     \label{fig:feature_shifts}
 \end{figure}
 
@@ -463,7 +472,7 @@ Table~\ref{tab:ses_sensitivity} demonstrates the sensitivity of actionability-co
 
 \begin{table}[H]
 \centering
-\caption{\hlbox{Sensitivity of Actionability-Constrained Recourse Metrics to Alternative SES Operationalizations (10-Seed Average $\pm$ SD, Group-Independent Evaluation)}}
+\caption{Sensitivity of Actionability-Constrained Recourse Metrics to Alternative SES Operationalizations (10-Seed Average $\pm$ SD, Group-Independent Evaluation)}
 \label{tab:ses_sensitivity}
 \small
 \begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}X c c c c c}
