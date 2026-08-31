@@ -187,7 +187,7 @@ von K\"ugelgen et al. (2022) \cite{vonKugelgen2022}
 
 \textbf{Present study}
 & \textbf{DAG-informed actionable recourse}
-& \textbf{Yes (DAG)}
+& \textbf{Assumed DAG (no SCM)}
 & \textbf{Yes}
 & \textbf{\hlbox{Evaluated (no empirical gain)}}
 & \textbf{Integrates student prediction, DAG constraints, and recourse evaluation in a unified framework.} \\
@@ -264,10 +264,9 @@ Exogenous background variables (sensitive attribute $\text{SES}$, immutable feat
 
 \hlblock{Recorded absences in the dataset represent historical counts. Recommended reductions are simulated hypothetical changes to a future-attendance / engagement proxy, not a retrospective rewrite of past absences. Prediction is assumed to be issued mid-term / before final outcome, but the UCI snapshot does not encode this timing. Therefore absences are treated as a constrained actionable proxy, not a directly implementable past intervention.}
 
-\subsection{Mathematical optimization formulation and discrete candidate space}
-\label{subsec:optimization}
+The full discrete feature space spans $\mathcal{F}_{\text{discrete}} = \mathcal{X}_{\text{study}} \times \mathcal{X}_{\text{abs}} \times \mathcal{X}_{\text{free}} \times \mathcal{X}_{\text{go}} = \{1,2,3,4\} \times \{0,1,\dots,93\} \times \{1,2,3,4,5\} \times \{1,2,3,4,5\}$, yielding a total discrete space of $|\mathcal{F}_{\text{discrete}}| = 4 \times 94 \times 5 \times 5 = 9,400$ candidate points. 
 
-The full discrete feature space spans $\mathcal{F}_{\text{discrete}} = \mathcal{X}_{\text{study}} \times \mathcal{X}_{\text{abs}} \times \mathcal{X}_{\text{free}} \times \mathcal{X}_{\text{go}} = \{1,2,3,4\} \times \{0,1,\dots,93\} \times \{1,2,3,4,5\} \times \{1,2,3,4,5\}$, yielding a total discrete space of $|\mathcal{F}_{\text{discrete}}| = 4 \times 94 \times 5 \times 5 = 9,400$ candidate points. For each student $i$ predicted to fail ($f(\mathbf{x}_i) < \tau=0.50$), counterfactual recommendations are drawn from a student-specific candidate grid of $K=700$ actionable candidate vectors constructed relative to initial feature vector $\mathbf{x}_i$ under directional actionability bounds ($\delta_{\text{study}} \ge 0, \delta_{\text{abs}} \le 0$).
+\textbf{Candidate Space and Sampling Details ($K=700$)}: For each student $i$ predicted to fail ($f(\mathbf{x}_i) < \tau=0.50$), counterfactual candidates are constructed without replacement from a student-specific directional subspace defined relative to the initial feature vector $\mathbf{x}_i$. Feature shifts are sampled over discrete steps ($\delta_{\text{study}} \in \{0,1,2,3\}$, $\delta_{\text{abs}} \in \{0,-1,\dots,-93\}$, $\delta_{\text{free}} \in \{-4,\dots,+4\}$, $\delta_{\text{go}} \in \{-4,\dots,+4\}$) under directional actionability bounds ($\delta_{\text{study}} \ge 0, \delta_{\text{abs}} \le 0$) and clipped to valid UCI scale boundaries, up to a search budget of $K=700$ candidate vectors per student. For students starting at scale boundaries (e.g., $\text{studytime}_i = 4$ or $\text{absences}_i = 0$), the total number of distinct actionable grid points in $\mathcal{F}_{\text{discrete}}$ is strictly fewer than 700 (e.g., $1 \times 1 \times 5 \times 5 = 25$ unique candidate vectors); in these cases, the candidate search evaluates all available unique directional points. If no candidate vector in the search grid achieves $f(\mathbf{x}_i + \boldsymbol{\delta}) \ge 0.50$, recourse fails for that student, directly reducing the fold validity rate.
 
 We evaluate five recourse conditions:
 
