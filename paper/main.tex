@@ -241,7 +241,7 @@ Recourse recommendations are constrained by an assumed educational Directed Acyc
     \label{fig:dag}
 \end{figure}
 
-The educational DAG (Figure~\ref{fig:dag}) encodes 9 structural directed edges derived from established educational literature:
+The educational DAG (Figure~\ref{fig:dag}) encodes 10 structural directed edges derived from established educational literature:
 \begin{enumerate}
     \item $\text{SES} \to \text{studytime}$: Socioeconomic status determines home learning environment, study resources, and academic support access \cite{Sirin2005}.
     \item $\text{SES} \to \text{absences}$: Low-SES students face higher structural friction (long commutes, family responsibilities, health barriers) leading to attendance challenges \cite{OECD2018}.
@@ -252,9 +252,10 @@ The educational DAG (Figure~\ref{fig:dag}) encodes 9 structural directed edges d
     \item $\text{absences} \to y$: Chronic absenteeism directly reduces classroom instructional exposure, impairing academic performance \cite{Gottfried2014,Gershenson2019}.
     \item $\text{freetime} \to y$: Free time management influences academic preparation balance \cite{Nonis2010}.
     \item $\text{goout} \to y$: Excessive social outings reduce study concentration and academic achievement \cite{Plant2005}.
+    \item $\text{failures} \to y$: Prior academic failures directly reduce subject mastery and lower binary passing probability $y$ ($G3 \ge 10$) \cite{CortezSilva2008}.
 \end{enumerate}
 
-Exogenous background variables (sensitive attribute $\text{SES}$, immutable features $\text{age}$ and prior $\text{failures}$) remain fixed without incoming edges from actionable features. Note: $\text{SES}$ is parameterised as an exogenous composite index of household digital access, parental education, and family size constraints; it is not modeled as a causal effect of its own defining indicators, preventing circularity.
+Exogenous background variables (sensitive attribute $\text{SES}$, immutable features $\text{age}$ and prior $\text{failures}$) remain fixed without incoming edges from actionable features. Note: $\text{SES}$ is parameterised as an exogenous composite index of household digital access, parental education, and family size constraints; it is not modeled as a causal effect of its own defining indicators, preventing circularity. Target node is binary pass outcome $y \in \{0,1\}$ ($G3 \ge 10$). Structural edge dependencies are defined in the educational DAG, but downstream $do()$ propagation is not performed.
 
 \hlblock{DAG parent restrictions mean immutable/sensitive features remain fixed while only actionable features vary under directional constraints. Structural equations are not estimated, and downstream $do()$ propagation is not performed.}
 
@@ -266,7 +267,7 @@ Exogenous background variables (sensitive attribute $\text{SES}$, immutable feat
 \subsection{Mathematical optimization formulation and discrete candidate space}
 \label{subsec:optimization}
 
-The full discrete feature space spans $\mathcal{F}_{\text{discrete}} = \mathcal{X}_{\text{study}} \times \mathcal{X}_{\text{abs}} \times \mathcal{X}_{\text{free}} \times \mathcal{X}_{\text{go}} = \{1,2,3,4\} \times \{0,1,\dots,93\} \times \{1,2,3,4,5\} \times \{1,2,3,4,5\}$, yielding a total discrete space of $|\mathcal{F}_{\text{discrete}}| = 4 \times 94 \times 5 \times 5 = 9,400$ candidate points. For each student $i$ predicted to fail ($f(\mathbf{x}_i) < \tau=0.50$), counterfactual recommendations are drawn from a directional search grid of $K=700$ actionable candidate vectors constructed under directional actionability bounds ($\delta_{\text{study}} \ge 0, \delta_{\text{abs}} \le 0$).
+The full discrete feature space spans $\mathcal{F}_{\text{discrete}} = \mathcal{X}_{\text{study}} \times \mathcal{X}_{\text{abs}} \times \mathcal{X}_{\text{free}} \times \mathcal{X}_{\text{go}} = \{1,2,3,4\} \times \{0,1,\dots,93\} \times \{1,2,3,4,5\} \times \{1,2,3,4,5\}$, yielding a total discrete space of $|\mathcal{F}_{\text{discrete}}| = 4 \times 94 \times 5 \times 5 = 9,400$ candidate points. For each student $i$ predicted to fail ($f(\mathbf{x}_i) < \tau=0.50$), counterfactual recommendations are drawn from a student-specific candidate grid of $K=700$ actionable candidate vectors constructed relative to initial feature vector $\mathbf{x}_i$ under directional actionability bounds ($\delta_{\text{study}} \ge 0, \delta_{\text{abs}} \le 0$).
 
 We evaluate five recourse conditions:
 
@@ -287,7 +288,7 @@ Enforces actionability constraints while incorporating domain difficulty weights
 \begin{equation}
 \min_{\boldsymbol{\delta}} \mathcal{C}_{\text{domain}}(\boldsymbol{\delta}) \quad \text{s.t.} \quad f(\mathbf{x}_i + \boldsymbol{\delta}) \ge \tau, \quad \delta_{\text{study}} \ge 0, \quad \delta_{\text{abs}} \le 0, \quad (\mathbf{x}_i + \boldsymbol{\delta}) \in \mathcal{F}_{\text{discrete}}
 \end{equation}
-where $\mathcal{C}_{\text{domain}}(\boldsymbol{\delta}) = \sum_{j \in \text{actionable}} w_j \lambda_j |\delta_j|$ and bounds normalization factors are $\lambda_{\text{study}}=1/3, \lambda_{\text{abs}}=1/93, \lambda_{\text{free}}=1/4, \lambda_{\text{go}}=1/4$.
+where $\mathcal{C}_{\text{domain}}(\boldsymbol{\delta}) = \sum_{j \in \text{actionable}} w_j \lambda_j |\delta_j|$ and bounds normalization factors are $\lambda_{\text{study}}=1/3, \lambda_{\text{abs}}=1/93, \lambda_{\text{free}}=1/4, \lambda_{\text{go}}=1/4$. Note: Fairness-weighted discrete search incorporates directional actionability bounds ($\delta_{\text{study}} \ge 0, \delta_{\text{abs}} \le 0$); an unconstrained fairness-only variant was not implemented as actionability constraints are prerequisite in educational recourse.
 
 4. \textbf{Proposed SES-Sensitive Difficulty-Weighted Recourse}:
 Joint actionability constraints and candidate scoring incorporating structural attendance friction weights for Low-SES students ($w_{\text{abs}}^{\text{Low}}=2.0$):
@@ -297,7 +298,7 @@ Joint actionability constraints and candidate scoring incorporating structural a
 where $\mathcal{C}_{\text{scoring}}(\boldsymbol{\delta}, \text{SES}_i) = \sum_{j \in \text{actionable}} w_j(\text{SES}_i) \lambda_j |\delta_j|$, with $w_{\text{abs}}(0) = 2.0$ and $w_{\text{abs}}(1) = 1.0$.
 
 5. \textbf{Manifold nearest-neighbor recourse baseline}:
-Finds the nearest passing instance in the training set graph manifold satisfying directional actionability bounds ($\delta_{\text{study}} \ge 0, \delta_{\text{abs}} \le 0$), evaluated over all passing instances in the training fold ($N_{\text{pass,train}} \approx 439$).
+Finds the nearest passing instance in the training set graph manifold satisfying directional actionability bounds ($\delta_{\text{study}} \ge 0, \delta_{\text{abs}} \le 0$), evaluated over all passing instances in the training fold ($N_{\text{pass,train}} \approx 439$). The manifold baseline evaluates all $N_{\text{pass,train}} \approx 439$ passing training instances, whereas discrete search evaluates a student-specific candidate grid of $K=700$ directional vectors.
 
 \textbf{Candidate Selection and Tie-Breaking Rule}: If multiple valid candidate vectors satisfy $f(\mathbf{x}_i + \boldsymbol{\delta}) \ge \tau$ with identical minimal scoring cost, candidate selection breaks ties deterministically by selecting the candidate with (i)~smallest study time increase $\delta_{\text{study}}$, (ii)~smallest absolute absence change $|\delta_{\text{abs}}|$, and (iii)~first index in the pre-generated candidate grid.
 
@@ -501,6 +502,7 @@ Several limitations should be acknowledged:
 1. Feature alignment between UCI and OULAD was too loose (lacking direct study time and absenteeism measures) to justify a quantitative external replication claim; therefore, OULAD was removed from quantitative results tables and positioned as a conceptual framework for future external validation.
 2. Causal constraints rely on an assumed educational DAG rather than estimated structural equations.
 3. Absences are treated as a historical proxy rather than a direct past intervention.
+4. Off-the-shelf equal-K library implementations (CARLA, Karimi, Ustun ILP) were not executed due to continuous optimization and structural causal equation requirements; this remains an empirical limitation of our discrete search setup.
 
 \section{Conclusion}
 \label{sec:conclusion}

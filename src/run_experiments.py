@@ -335,6 +335,25 @@ ablation_df = pd.DataFrame(ablation_summary)
 ablation_export_df = ablation_df.drop(columns=['lows_list', 'highs_list'])
 ablation_export_df.to_csv(os.path.join(TABLES_DIR, "ablation_aggregate.csv"), index=False)
 
+# Export per-seed detailed recourse results table to heldout_by_seed.csv
+heldout_records = []
+for method in ablation_methods:
+    for r in seed_results[method]:
+        heldout_records.append({
+            'Seed': r['seed'],
+            'Methodology': method,
+            'Low_SES_Cost_mu_L': r['mean_low'],
+            'High_SES_Cost_mu_H': r['mean_high'],
+            'Per_Seed_RFD': r['rfd'],
+            'Validity_Rate': r['validity'],
+            'Valid_Student_Count': r['valid_count'],
+            'Failed_Student_Count': r['failed_count'],
+            'Valid_Low_SES': r['valid_low'],
+            'Valid_High_SES': r['valid_high']
+        })
+heldout_df = pd.DataFrame(heldout_records)
+heldout_df.to_csv(os.path.join(TABLES_DIR, "heldout_by_seed.csv"), index=False)
+
 print("\n--- Multi-Seed Ablation Results (10 Seeds, mean ± SD) ---")
 print(ablation_export_df[['Methodology', 'Low SES Cost (mu_L)', 'High SES Cost (mu_H)', 'RFD (E[|mu_L,s - mu_H,s|])', 'RBR_L (%)', 'Validity (%)', 'Valid Student Count']].to_string(index=False))
 
