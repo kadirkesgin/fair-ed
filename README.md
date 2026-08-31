@@ -3,6 +3,8 @@
 This repository contains the official source code, datasets, figures, and evaluation pipeline for the paper:
 **"Fair causal recourse for student academic performance prediction"**
 
+[![DOI](https://zenodo.org/badge/DOI/10.5281/zenodo.22199775.svg)](https://doi.org/10.5281/zenodo.22199775)
+
 ## 📌 Overview
 Predicting student failure is only the first step. This project introduces a **Fair Causal Recourse** framework that not only identifies at-risk students but also provides **actionable, realistic, and equitable** recourse pathways to support academic success. It incorporates a **Composite Socioeconomic Status (SES)** index layered over a **DAG-constrained / actionability-constrained** candidate search to ensure that recommended changes (e.g., modifying study time or absences) respect directional educational constraints and avoid unfair friction for disadvantaged groups.
 
@@ -41,4 +43,4 @@ Predicting student failure is only the first step. This project introduces a **F
 *   **Prediction Reversal Shift**: Mean predicted passing probability increases from $0.2866$ before recourse to $0.5975$ after recourse.
 
 ## 📄 Code Availability & Zenodo Release
-The repository is maintained on GitHub at [https://github.com/kadirkesgin/fair-ed](https://github.com/kadirkesgin/fair-ed). A permanent Zenodo archive with DOI will be assigned to the frozen release version upon publication.
+The repository is maintained on GitHub at [https://github.com/kadirkesgin/fair-ed](https://github.com/kadirkesgin/fair-ed) and permanently archived on Zenodo at [https://doi.org/10.5281/zenodo.22199775](https://doi.org/10.5281/zenodo.22199775).
