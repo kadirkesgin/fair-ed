@@ -1,0 +1,454 @@
+\documentclass[11pt]{article}
+\usepackage[margin=1in]{geometry}
+\usepackage{amsmath}
+\usepackage{amssymb}
+\usepackage{graphicx}
+\usepackage{tikz-cd}
+\usepackage{multicol}
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{array}
+\usepackage{float}
+\usepackage{algorithm}
+\usepackage{algpseudocode}
+\usepackage[numbers]{natbib}
+\usepackage{url}
+
+\setlength{\parindent}{0pt}
+\setlength{\parskip}{1\baselineskip}
+
+\title{Fair causal recourse for student academic performance prediction}
+
+\author{}
+\date{}
+
+\begin{document}
+
+\maketitle
+
+\begin{abstract}
+Educational data mining has made substantial progress in predicting student academic performance, yet most studies remain focused on risk identification rather than model-based recourse design. Explainable AI methods can highlight influential predictors, but they do not necessarily specify which changes are causally meaningful, practically feasible, and equitable across student groups. This study proposes a fair causal recourse framework that moves beyond prediction-oriented early warning toward actionable and fairness-aware model-based recourse support.
+
+Using the UCI Student Performance dataset (\textit{student-por.csv}, $N=649$), we evaluated student performance prediction without final grades ($G1/G2$) using 5-fold stratified cross-validation (Accuracy: $0.8335 \pm 0.0156$, ROC AUC: $0.7263 \pm 0.0556$, Class Prevalence: $84.6\%$ pass, $15.4\%$ fail). We then implemented an actionability- and DAG-constrained recourse optimization pipeline across 10 random seeds to generate counterfactual recommendations under discrete UCI scale boundaries. Socioeconomic status (SES) was operationalized via a composite index combining parental education, family size, and digital access.
+
+Across multi-seed evaluation, the proposed framework produced valid recourse recommendations (validity rate $95.5\% \pm 4.7\%$) while restricting interventions to plausible academic levers (e.g., non-decreasing study time and non-increasing absenteeism). Average recourse distances under group-independent evaluation metrics were $\mu_L = 0.3408 \pm 0.1441$ for Low-SES students and $\mu_H = 0.2638 \pm 0.1633$ for High-SES students ($\text{RFD} = 0.1613 \pm 0.1038$). Furthermore, recommendations shifted model predictions, increasing the average model-predicted passing probability for failing students from $0.2866$ before recourse to $0.5975$ after recourse.
+
+Constrained search raises recourse distance relative to unconstrained search while keeping high validity, and the observed probability shift is model-based decision-boundary crossing rather than evidence of educational effectiveness. Fairness weighting did not reduce group-independent distance beyond actionability constraints alone. Overall, model-based recourse in education highlights the trade-off between unconstrained optimization and actionable feasibility, demonstrating that responsible educational AI must evaluate the realistic constraints of recommended success pathways.
+\end{abstract}
+
+\noindent\textbf{Keywords:} educational data mining; student performance prediction; algorithmic recourse; causal machine learning; fairness-aware AI; socioeconomic fairness; educational decision support.
+
+\section{Introduction}
+
+Predicting student academic performance has become one of the central problems in educational data mining and learning analytics, largely because early identification of at-risk learners can support timely academic support, targeted advising, and institutional support. Recent review studies show that student performance prediction has evolved into a mature research area in which machine learning and data mining techniques are routinely used to estimate achievement, failure risk, or dropout-related outcomes across diverse educational settings \cite{Albreiki2021,Zhang2021}. At the same time, this literature has increasingly emphasized that prediction is not an end in itself; rather, its educational value lies in whether it can support meaningful action for student success.
+
+As predictive models became more accurate, the field also moved toward explainability. Post hoc explanation techniques such as LIME and SHAP have been widely adopted to clarify which variables most strongly influence model outputs and to make educational predictions more transparent for instructors and stakeholders \cite{Ribeiro2016,Lundberg2017}. In educational contexts, this shift is important because high-performing black-box models are often difficult to justify when used in sensitive decisions affecting student trajectories. However, explainability alone does not resolve the core practical question faced by educators and students: what should be changed, concretely and feasibly, for a student to improve the predicted outcome? Feature attribution methods can indicate influential variables, but they do not by themselves guarantee that changing those variables would causally improve academic performance.
+
+This limitation points to an important conceptual transition from prediction to model-based recourse. Much of the current student-performance literature remains diagnostic: it identifies who is likely to fail and which factors are associated with risk, but it rarely provides personalized, operational, and evidence-grounded recommendations for reversing that risk. In machine learning, this problem is closely related to algorithmic recourse, which refers to the possibility of changing an unfavorable prediction by modifying actionable input features \cite{Ustun2019}. The recourse literature emerged precisely because explanations are often insufficient when decision subjects need actionable guidance rather than retrospective interpretation. More recent surveys and methodological work further distinguish counterfactual explanations from true recourse, emphasizing that actionable recommendations should be realistic, feasible, and aligned with how the world actually changes \cite{Karimi2021,Karimi2022,Verma2024}.
+
+A second major limitation concerns the difference between correlation and causation. In educational datasets, student achievement is shaped by tightly interdependent academic, behavioral, and socioeconomic variables. Attendance, study time, parental education, prior achievement, digital access, and financial constraints do not operate independently; they affect one another through structural pathways. For this reason, a model that merely identifies correlates of failure does not justify causal action claims such as ``reducing absenteeism will improve performance'' or ``increasing study hours is the minimal effective action.'' Karimi et al. \cite{Karimi2021} explicitly argue that recourse should not be based on nearest counterfactual changes alone, because such suggestions may violate causal dependencies and therefore produce unrealistic or invalid recommendations. In high-stakes settings such as education, this makes a causal perspective essential.
+
+The issue becomes even more critical when fairness is considered. In many educational AI studies, fairness is evaluated at the prediction layer through performance parity or error-rate comparisons across demographic groups. While this is necessary, it is not sufficient. A model may appear fair in its outputs while still prescribing highly unequal paths to success. For example, a recommendation such as ``reduce absenteeism'' may be far easier for a high-socioeconomic-status student than for a student who must work, commute long distances, or carry family responsibilities. Likewise, increasing weekly study time may impose very different burdens depending on gendered care roles or access to learning resources. Causal fairness research has long argued that fairness must be evaluated in counterfactual terms rather than through surface-level statistical parity alone \cite{Kusner2017}. Recent recourse research similarly highlights that model-based recourse pathways themselves can embed inequity if the feasibility and cost of action are not explicitly modeled \cite{vonKugelgen2022}.
+
+These concerns motivate a shift from general fairness toward fair recourse in education. The core idea is that a responsible student-support model should not only identify actionable changes, but should do so in a way that respects students' structural constraints and does not systematically burden disadvantaged groups with harder or more expensive recourse requirements. In other words, the question is no longer only whether a model predicts fairly, but whether the recommended route to a favorable outcome is equitably attainable. This distinction is especially important in educational settings, where institutional decisions may shape students' long-term opportunities and where model-based recourse advice can directly influence guidance, remediation, and support allocation.
+
+Against this background, this study proposes a causal and fairness-aware algorithmic recourse framework for student academic performance. Rather than stopping at risk prediction or feature-level explanation, the proposed framework aims to generate model-based recourse recommendations that are actionable, causally plausible, and fair across demographic groups. By combining student-performance modeling with causal structure and recourse analysis, the study addresses three gaps simultaneously: (i)~the gap between prediction and prescription, (ii)~the gap between correlational explanation and causal action, and (iii)~the gap between predictive fairness and fairness of action. Table~\ref{tab:research_gaps} summarizes the main limitations in prior work and the corresponding advances introduced in this paper.
+
+\begin{table}[H]
+\centering
+\caption{Main research gaps in prior literature and the positioning of the present study}
+\label{tab:research_gaps}
+\renewcommand{\arraystretch}{1.2}
+\setlength{\tabcolsep}{5pt}
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{2.6cm} >{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}X >{\raggedright\arraybackslash}X}
+\toprule
+\textbf{Gap dimension} & \textbf{State of the art} & \textbf{Key limitation} & \textbf{How the present study advances the field} \\
+\midrule
+
+Prediction to model-based recourse
+& Most studies in educational data mining focus on predicting success, failure, or dropout risk.
+& Diagnostic only; identifies at-risk learners but rarely specifies what should be changed.
+& Moves from risk identification to actionable support by generating personalized recourse pathways. \\
+
+Correlation to causation
+& Explainable AI methods (SHAP, LIME) are used to interpret student prediction models.
+& Associational only; does not guarantee that modifying an important feature causally improves outcomes.
+& Integrates causal DAG constraints to distinguish predictive correlates from valid recourse levers. \\
+
+Fairness to fair recourse
+& Fairness is assessed through prediction-level metrics (parity, error rates).
+& A fair prediction model may assign substantially harder action requirements to disadvantaged students.
+& Extends fairness analysis to the recourse layer by evaluating simulated action burden across SES groups. \\
+
+\bottomrule
+\end{tabularx}
+\end{table}
+
+Building on the gaps summarized in Table~\ref{tab:research_gaps}, the main contributions of this study are as follows:
+\begin{enumerate}
+    \item We propose a recourse-oriented framework for student academic performance analysis that moves beyond risk prediction and supports actionable recourse generation for students predicted to be at risk.
+    \item We incorporate DAG-constrained actionability semantics aligned with Karimi et al. \cite{Karimi2021} to ensure that recommended changes respect directional educational constraints.
+    \item We introduce a fairness-aware recourse evaluation perspective in educational AI by defining group-conditional recourse burden metrics ($\text{RFD}$, $\text{RBR}_L$) under group-independent normalized distance, establishing an empirical baseline for assessing recourse equity.
+    \item We provide a two-tier comparison bridging empirical counterfactual baselines and theoretical recourse frameworks, accompanied by an open-source, fully reproducible pipeline.
+\end{enumerate}
+
+\section{Related Work}
+\label{sec:related_work}
+
+The literature relevant to this study lies at the intersection of student performance prediction, explainable AI in education, causal reasoning, and algorithmic recourse. Table~\ref{tab:related_work_comparison} summarizes representative studies and positions the present work relative to existing literature.
+
+\begin{table}[H]
+\centering
+\caption{Comparison of representative studies in student performance prediction, XAI, causal reasoning, and algorithmic recourse}
+\label{tab:related_work_comparison}
+\footnotesize
+\renewcommand{\arraystretch}{1.15}
+\setlength{\tabcolsep}{4.5pt}
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{3.2cm} >{\raggedright\arraybackslash}p{2.2cm} >{\raggedright\arraybackslash}p{1.7cm} >{\raggedright\arraybackslash}p{1.9cm} >{\raggedright\arraybackslash}p{1.9cm} >{\raggedright\arraybackslash}X}
+\toprule
+\textbf{Study} & \textbf{Primary focus} & \textbf{Causal reasoning} & \textbf{Actionable recourse} & \textbf{Fairness of recourse} & \textbf{Main limitation relative to present study} \\
+\midrule
+
+Albreiki et al. (2021) \cite{Albreiki2021}
+& Student prediction survey
+& No
+& No
+& No
+& Prediction-focused; no model-based recourse or recourse equity analysis. \\
+
+Batool et al. (2023) \cite{Batool2023}
+& EDM survey
+& No
+& No
+& No
+& Focuses on predictors, not actionable recourse design. \\
+
+T\"urkmen (2025) \cite{Turkmen2025}
+& XAI in education
+& Limited
+& No
+& No
+& Emphasizes interpretability, not causal action or fair recourse. \\
+
+Gunasekara et al. (2025) \cite{Gunasekara2025}
+& XAI techniques
+& Limited
+& No
+& No
+& Evaluates XAI methods; does not provide actionable recourse. \\
+
+Baker and Hawn (2022) \cite{Baker2022}
+& Algorithmic bias in ed.
+& Partial
+& No
+& Partial
+& Analyzes predictive bias, but recourse equity is not evaluated. \\
+
+Bu\~nay-Guisn\'an et al. (2026) \cite{BunayGuisnan2026}
+& Group counterfactuals
+& Partial
+& Partial
+& No
+& Counterfactuals generated, but limited recourse fairness treatment. \\
+
+Ustun et al. (2019) \cite{Ustun2019}
+& Actionable recourse
+& No
+& Yes
+& No
+& Foundational recourse method; linear ILP model required. \\
+
+Karimi et al. (2021, 2022) \cite{Karimi2021,Karimi2022}
+& Causal recourse
+& Yes
+& Yes
+& Limited
+& Theoretical SCM recourse framework; requires structural equations. \\
+
+von K\"ugelgen et al. (2022) \cite{vonKugelgen2022}
+& Fair causal recourse
+& Yes
+& Yes
+& Yes
+& Theoretical foundation outside education-specific implementation. \\
+
+\textbf{Present study}
+& \textbf{Fair causal recourse in education}
+& \textbf{Yes (DAG)}
+& \textbf{Yes}
+& \textbf{Evaluated (no empirical gain over actionability)}
+& \textbf{Integrates student prediction, DAG constraints, and fair recourse evaluation in a unified framework.} \\
+
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Methodology}
+\label{sec:methodology}
+
+\subsection{Problem formulation}
+\label{subsec:problem_formulation}
+
+Let $\mathbf{x}_i \in \mathbb{R}^d$ denote the feature vector for student $i$, and let $y_i \in \{0,1\}$ denote the binary academic outcome ($y_i=1$ pass, $y_i=0$ fail). A predictive model $f(\mathbf{x})$ estimates the probability of success:
+\begin{equation}
+\hat{p}_i = f(\mathbf{x}_i) = P(Y=1 \mid \mathbf{X}=\mathbf{x}_i).
+\end{equation}
+
+For a student predicted to fail ($\hat{p}_i < \tau$, threshold $\tau=0.50$), the goal is to find a recourse vector $\boldsymbol{\delta}_i$ such that $\mathbf{x}_i' = \mathbf{x}_i + \boldsymbol{\delta}_i$ satisfies $f(\mathbf{x}_i') \ge \tau$ while minimizing recourse cost and respecting directional and feasibility constraints.
+
+The framework implements DAG-constrained / actionability-constrained recourse under an assumed educational causal graph. It is not a fully identified Structural Causal Model (SCM) with estimated structural equations.
+
+\subsection{Dataset and primary composite SES construction}
+\label{subsec:data}
+
+The empirical evaluation uses the \textit{Student Performance} dataset from the UCI Machine Learning Repository (\textit{student-por.csv}, Portuguese course, $N=649$) \cite{CortezSilva2008,UCIStudentPerformance}. The target variable $y$ is defined as pass = 1 if final grade $G3 \ge 10$ and fail = 0 otherwise.
+
+Variables were partitioned into three categories:
+\begin{enumerate}
+    \item \textbf{Actionable features}: \textit{studytime} (ordinal 1--4), \textit{absences} (integer 0--93), \textit{freetime} (ordinal 1--5), and \textit{goout} (ordinal 1--5).
+    \item \textbf{Immutable features}: \textit{age} and prior academic failures (\textit{failures}).
+    \item \textbf{Sensitive attribute}: Socioeconomic Status (SES).
+\end{enumerate}
+
+To align with domain literature, the primary SES variable was constructed as an equally weighted composite index:
+\begin{equation}
+\text{Composite Score}_i = \text{Medu}_i + \text{Fedu}_i + \mathbb{I}(\text{famsize}_i = \text{`LE3'}) + \mathbb{I}(\text{internet}_i = \text{`yes'}),
+\end{equation}
+where $\text{famsize\_small} = 1$ if family size $\le 3$ and $\text{internet\_yes} = 1$ if internet access is available at home. Students were split at the median score into Low SES ($\text{SES}=0$, $N=307$) and High SES ($\text{SES}=1$, $N=342$).
+
+\subsection{Causal DAG assumptions}
+\label{subsec:causal_dag}
+
+Recourse recommendations are constrained by an assumed educational Directed Acyclic Graph (DAG), as illustrated in Figure~\ref{fig:dag}.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\linewidth]{sci_fig0_causal_dag.png}
+    \caption{Assumed educational causal DAG. DAG parent restrictions mean immutable/sensitive features remain fixed while only actionable features vary under directional constraints. Structural equations are not estimated, and downstream $do()$ propagation is not performed.}
+    \label{fig:dag}
+\end{figure}
+
+DAG parent restrictions mean immutable/sensitive features remain fixed while only actionable features vary under directional constraints. Structural equations are not estimated, and downstream $do()$ propagation is not performed.
+
+\subsection{Historical absences proxy disclaimer}
+\label{subsec:absences_proxy}
+
+Recorded absences in the dataset represent historical counts. Recommended reductions are simulated hypothetical changes to a future-attendance / engagement proxy, not a retrospective rewrite of past absences. Prediction is assumed to be issued mid-term / before final outcome, but the UCI snapshot does not encode this timing. Therefore absences are treated as a constrained actionable proxy, not a directly implementable past intervention.
+
+\subsection{Mathematical optimization formulation}
+\label{subsec:optimization}
+
+We evaluate four ablation conditions under a discrete candidate search grid:
+
+1. \textbf{Unconstrained discrete search (DiCE-style)}:
+\begin{equation}
+\min_{\boldsymbol{\delta}} \mathcal{C}_{\text{unweighted}}(\boldsymbol{\delta}) \quad \text{s.t.} \quad f(\mathbf{x} + \boldsymbol{\delta}) \ge \tau, \quad (\mathbf{x} + \boldsymbol{\delta}) \in \mathcal{F}_{\text{discrete}}
+\end{equation}
+where features may shift in any direction.
+
+2. \textbf{Actionability-constrained discrete search}:
+\begin{equation}
+\min_{\boldsymbol{\delta}} \mathcal{C}_{\text{unweighted}}(\boldsymbol{\delta}) \quad \text{s.t.} \quad f(\mathbf{x} + \boldsymbol{\delta}) \ge \tau, \quad \delta_{\text{study}} \ge 0, \quad \delta_{\text{abs}} \le 0
+\end{equation}
+enforcing non-decreasing study time and non-increasing absences under unweighted normalized feature distance $\mathcal{C}_{\text{unweighted}}(\boldsymbol{\delta}) = \sum_j \lambda_j |\delta_j|$.
+
+3. \textbf{Fairness-weighted discrete search}:
+Enforces actionability constraints while incorporating domain difficulty weights $w_j$ ($w_{\text{study}}=1.0, w_{\text{abs}}=1.5, w_{\text{free}}=1.0, w_{\text{go}}=1.0$) during candidate scoring:
+\begin{equation}
+\mathcal{C}_{\text{domain}}(\boldsymbol{\delta}) = \sum_{j \in \text{actionable}} w_j \lambda_j |\delta_j|
+\end{equation}
+where bounds normalization factors are $\lambda_{\text{study}}=1/3, \lambda_{\text{abs}}=1/93, \lambda_{\text{free}}=1/4, \lambda_{\text{go}}=1/4$.
+
+4. \textbf{Proposed Fair Causal Recourse}:
+Joint actionability constraints and candidate selection incorporating structural attendance friction weights for Low-SES students ($w_{\text{abs}}^{\text{Low}}=2.0$).
+
+5. \textbf{FACE-like kNN graph recourse}:
+Finds the nearest passing instance in the training set satisfying actionability constraints. (Note: Nearest-neighbor baseline on dataset manifold, not a sampled-K optimization method).
+
+\subsection{Fairness evaluation metrics}
+\label{subsec:metrics}
+
+To evaluate all methods on an unbiased, group-independent benchmark scale, evaluation cost is defined as pure normalized feature shift distance:
+\begin{align}
+\mathcal{C}_{\text{eval}}(\boldsymbol{\delta}) &= \sum_{j \in \text{actionable}} \lambda_j |\delta_j| \\
+\text{RFD} &= |\mu_L - \mu_H| \\
+\Delta_g &= \mu_g^{\text{base}} - \mu_g^{\text{method}} \\
+\text{RBR}_L &= \frac{\mu_L^{\text{base}} - \mu_L^{\text{method}}}{\mu_L^{\text{base}}} \times 100\%
+\end{align}
+where $\mu_L$ and $\mu_H$ are mean group normalized distances, $\text{RFD}$ is the Recourse Fairness Difference, and $\text{RBR}_L$ is the Recourse Burden Reduction for Low-SES students relative to unconstrained search.
+
+\section{Results}
+\label{sec:results}
+
+All empirical results are generated by the single official execution pipeline (\texttt{src/run\_experiments.py}) on \texttt{student-por.csv} ($N=649$).
+
+\subsection{Predictive performance and population flow}
+
+Table~\ref{tab:predictive_perf} reports 5-fold stratified cross-validation performance without final grades ($G1/G2$). Table~\ref{tab:population_flow} summarizes population and sample flow across the 10-seed experiment.
+
+\begin{table}[H]
+\centering
+\caption{Predictive Performance Metrics (5-Fold Stratified Cross-Validation, mean $\pm$ SD)}
+\label{tab:predictive_perf}
+\begin{tabular}{lccccc}
+\toprule
+\textbf{Model} & \textbf{Accuracy} & \textbf{Precision} & \textbf{Recall} & \textbf{F1-Score} & \textbf{ROC AUC} \\
+\midrule
+Gradient Boosting & $0.8335 \pm 0.0156$ & $0.8747 \pm 0.0158$ & $0.9381 \pm 0.0106$ & $0.9051 \pm 0.0083$ & $0.7263 \pm 0.0556$ \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\begin{table}[H]
+\centering
+\caption{Population and Sample Flow Statistics ($N=649$, mean across 10 test splits)}
+\label{tab:population_flow}
+\begin{tabular}{lc}
+\toprule
+\textbf{Metric} & \textbf{Count / Value} \\
+\midrule
+Total Population ($N$) & 649 \\
+Pass Prevalence ($G3 \ge 10$) & 549 ($84.6\%$) \\
+Fail Prevalence ($G3 < 10$) & 100 ($15.4\%$) \\
+Mean Test Set Size per Split (20\%) & 130.0 \\
+Mean Predicted Failure $N$ per Test Split & 12.1 \\
+Mean Low SES Predicted Failures ($N_{\text{fail,Low}}$) & 8.9 \\
+Mean High SES Predicted Failures ($N_{\text{fail,High}}$) & 3.2 \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\subsection{Multi-seed recourse and ablation evaluation}
+
+Table~\ref{tab:ablation_results} presents multi-seed recourse costs, RFD, $\text{RBR}_L$, and validity across 10 random seeds (seeds 42--51).
+
+\begin{table}[H]
+\centering
+\caption{Multi-Seed Recourse and Ablation Results across 10 Random Seeds (mean $\pm$ SD)}
+\label{tab:ablation_results}
+\small
+\begin{tabular}{lccccc}
+\toprule
+\textbf{Methodology} & \textbf{Low Cost ($\mu_L$)} & \textbf{High Cost ($\mu_H$)} & \textbf{RFD ($|\mu_L - \mu_H|$)} & \textbf{$\text{RBR}_L$ (\%)} & \textbf{Validity} \\
+\midrule
+Unconstrained discrete search & $0.2248 \pm 0.0734$ & $0.1496 \pm 0.0726$ & $0.1131 \pm 0.0635$ & Reference & $98.5\% \pm 3.0\%$ \\
+Actionability-constrained search & $0.3381 \pm 0.1457$ & $0.2638 \pm 0.1633$ & $0.1585 \pm 0.1038$ & $-50.4\% \pm 64.8\%$ & $95.5\% \pm 4.7\%$ \\
+Fairness-weighted search\textsuperscript{$\dagger$} & $0.3381 \pm 0.1457$ & $0.2638 \pm 0.1633$ & $0.1585 \pm 0.1038$ & $-50.4\% \pm 64.8\%$ & $95.5\% \pm 4.7\%$ \\
+Proposed Fair Causal Recourse & $0.3408 \pm 0.1441$ & $0.2638 \pm 0.1633$ & $0.1613 \pm 0.1038$ & $-51.6\% \pm 64.1\%$ & $95.5\% \pm 4.7\%$ \\
+FACE-like kNN graph recourse\textsuperscript{*} & $0.3795 \pm 0.1462$ & $0.3078 \pm 0.1740$ & $0.1736 \pm 0.0967$ & $-68.8\% \pm 65.0\%$ & $98.6\% \pm 4.3\%$ \\
+\bottomrule
+\multicolumn{6}{l}{\textsuperscript{$\dagger$}\footnotesize Under the common evaluation metric, fairness-weighted search selected the same actions as actionability-constrained search.} \\
+\multicolumn{6}{l}{\textsuperscript{*}\footnotesize Nearest-neighbor baseline on dataset manifold, not a sampled-K optimization method.}
+\end{tabular}
+\end{table}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.95\linewidth]{outputs/figures/fig1_recourse_cost_comparison.png}
+    \caption{Group-wise recourse feature distance across optimization methods on the UCI Student dataset.}
+    \label{fig:avg_cost}
+\end{figure}
+
+\subsection{Two-tier benchmark comparison}
+
+Table~\ref{tab:two_tier_benchmark} presents the two-tier comparison structuring empirical baselines versus conceptual frameworks.
+
+\begin{table}[H]
+\centering
+\caption{Two-Tier Benchmark Comparison Table}
+\label{tab:two_tier_benchmark}
+\small
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{3.2cm} >{\raggedright\arraybackslash}p{2.0cm} >{\raggedright\arraybackslash}p{2.5cm} >{\raggedright\arraybackslash}X}
+\toprule
+\textbf{Method} & \textbf{Category} & \textbf{Execution Status} & \textbf{Implementation Rationale / Requirements} \\
+\midrule
+Unconstrained discrete & Empirical & Evaluated (equal $K$) & Baseline unconstrained search across discrete grid. \\
+Actionability-constrained & Empirical & Evaluated (equal $K$) & Directional bounds ($\delta_{\text{study}} \ge 0, \delta_{\text{abs}} \le 0$). \\
+Proposed Fair Causal & Empirical & Evaluated (equal $K$) & Joint directional actionability + structural friction weighting. \\
+FACE-like kNN recourse & Empirical & Evaluated (Manifold) & Nearest passing neighbor in training manifold. \\
+\midrule
+Ustun Actionable Recourse \cite{Ustun2019} & Conceptual & Not drop-in executable & Requires linear classifier + Integer Linear Programming. \\
+Karimi Causal Recourse \cite{Karimi2021} & Conceptual & Not drop-in executable & Requires fully identified SCM structural equations. \\
+von K\"ugelgen Fair Recourse \cite{vonKugelgen2022} & Conceptual & Not drop-in executable & Requires explicit structural equations for counterfactuals. \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\subsection{Model-based prediction reversal and recourse validity}
+\label{subsec:prediction_reversal}
+
+Figure~\ref{fig:efficacy} shows model-predicted passing probabilities before and after recourse. Pre-recourse mean passing probability for failing students was $0.2866$; post-recourse mean passing probability reached $0.5975$, confirming that recommendations crossed the $0.50$ decision boundary.
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.85\linewidth]{outputs/figures/fig2_pre_post_probability.png}
+    \caption{Model-predicted passing probability before and after simulated recourse.}
+    \label{fig:efficacy}
+\end{figure}
+
+\begin{figure}[H]
+    \centering
+    \includegraphics[width=0.90\linewidth]{outputs/figures/fig3_feature_shifts.png}
+    \caption{Actionable feature shifts for Proposed Fair Causal Recourse across original UCI discrete scales ($\delta_{\text{study}} \ge 0, \delta_{\text{abs}} \le 0$).}
+    \label{fig:feature_shifts}
+\end{figure}
+
+\subsection{SES sensitivity analysis}
+
+Table~\ref{tab:ses_sensitivity} demonstrates the sensitivity of actionability-constrained recourse metrics across alternative SES operationalizations evaluated across 10 random seeds under the group-independent evaluation metric.
+
+\begin{table}[H]
+\centering
+\caption{Sensitivity of Actionability-Constrained Recourse Metrics to Alternative SES Operationalizations (10-Seed Average $\pm$ SD, Group-Independent Evaluation)}
+\label{tab:ses_sensitivity}
+\small
+\begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}X c c c c c}
+\toprule
+\textbf{SES Definition} & \textbf{Low Count} & \textbf{High Count} & \textbf{Low Cost ($\mu_L$)} & \textbf{High Cost ($\mu_H$)} & \textbf{RFD} \\
+\midrule
+Primary Composite Index & 307 & 342 & $0.3381 \pm 0.1457$ & $0.2638 \pm 0.1633$ & $0.1585 \pm 0.1038$ \\
+Parental Education ($\text{Medu} > 2$) & 335 & 314 & $0.3315 \pm 0.1160$ & $0.2256 \pm 0.0961$ & $0.1257 \pm 0.1066$ \\
+Combined Education ($\text{Medu}+\text{Fedu} > 4$) & 321 & 328 & $0.3798 \pm 0.1710$ & $0.2383 \pm 0.1261$ & $0.1883 \pm 0.1958$ \\
+\bottomrule
+\end{tabularx}
+\end{table}
+
+\section{Discussion}
+\label{sec:discussion}
+
+The empirical findings clarify the core trade-off between unconstrained numerical optimization and realistic actionability constraints in educational settings.
+
+\subsection{Actionability--Feasibility trade-off and empirical framing}
+
+Our empirical results point to three distinct takeaways:
+First, unconstrained counterfactual search achieves lower numerical feature distance ($\mu_L = 0.2248$) because it exploits educationally invalid shortcut directions (e.g., recommending that a student decrease study time or increase absences if the classifier decision boundary allows it).
+
+Second, enforcing directional actionability constraints ($\delta_{\text{study}} \ge 0, \delta_{\text{abs}} \le 0$) eliminates these invalid shortcuts; numerical action distance necessarily increases ($\mu_L = 0.3381$), while recourse validity remains high ($95.5\% \pm 4.7\%$).
+
+Third, under the common group-independent evaluation metric, fairness-weighted search selects the exact same candidate actions as actionability-constrained search ($\mu_L = 0.3381$), while proposed fair causal recourse yields virtually identical feature distance ($\mu_L = 0.3408$). Thus, fairness weighting does not produce an empirical cost reduction over actionability constraints alone in this setup. The primary value of the proposed framework lies in eliminating invalid non-causal shortcuts and ensuring high validity under plausible directional bounds, establishing an empirical baseline for recourse feasibility.
+
+Furthermore, population flow statistics (Table~\ref{tab:population_flow}) show that High-SES students have a high overall pass rate, yielding a small average number of predicted failures per test fold ($N_{\text{fail,High}} = 3.2$ vs. $N_{\text{fail,Low}} = 8.9$). High-SES recourse cost ($\mu_H = 0.2638 \pm 0.1633$) remains stable across Actionability-constrained, Fairness-weighted, and Proposed methods due to this small sample size, which also makes the group disparity metric ($\text{RFD}$) sensitive to minor fold-level variations rather than reflecting a definitive group inequality claim.
+
+Finally, pre- and post-recourse probability shifts ($0.2866 \to 0.5975$) demonstrate that generated profiles cross the same classifier's decision boundary. It does not show that the recommended behavioral changes would cause real academic improvement. That would require longitudinal or prospective evidence.
+
+\subsection{Limitations}
+
+Several limitations should be acknowledged:
+1. Feature alignment between UCI and OULAD was too loose (lacking direct study time and absenteeism measures) to justify a quantitative external replication claim; therefore, OULAD was removed from quantitative results tables and positioned as a conceptual framework for future external validation.
+2. Causal constraints rely on an assumed educational DAG rather than estimated structural equations.
+3. Absences are treated as a historical proxy rather than a direct past intervention.
+
+\section{Conclusion}
+\label{sec:conclusion}
+
+This study establishes an empirical baseline for recourse-oriented student performance analytics, highlighting the fundamental trade-off between unconstrained numerical optimization and directional actionability constraints. By enforcing plausible educational bounds ($\delta_{\text{study}} \ge 0, \delta_{\text{abs}} \le 0$), the framework eliminates invalid shortcut recommendations while maintaining high decision-boundary reversal validity ($95.5\%$). Under a standardized group-independent evaluation metric, fairness weighting did not produce additional empirical cost reductions beyond actionability constraints alone on this dataset. These findings demonstrate that model-based recourse in education should be evaluated through realistic feasibility constraints rather than unconstrained numerical minimizations, providing a foundation for responsible educational decision support.
+
+\section*{Data Availability}
+The dataset analyzed during the current study is available in the UCI Machine Learning Repository (\url{https://archive.ics.uci.edu/dataset/320/student+performance}).
+
+\section*{Code Availability}
+The custom implementation, pipeline script, and evaluation routines are publicly available at: \url{https://github.com/kadirkesgin/fair-ed}. A permanent Zenodo archive will be created for the accepted version of record.
+
+\bibliographystyle{plainnat}
+\bibliography{references}
+\end{document}
