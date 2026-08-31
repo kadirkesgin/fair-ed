@@ -108,12 +108,12 @@ def compute_standard_eval_cost(orig, cf):
 def compute_scoring_cost(orig, cf, ses, method_name):
     if method_name == 'Unconstrained discrete search (DiCE-style)':
         return sum(bounds_norm[ft] * abs(cf[ft] - orig[ft]) for ft in bounds_norm)
-    elif method_name in ['Actionable Recourse (Ustun-style discrete grid)', 'Actionability-constrained discrete search']:
+    elif 'Actionability-constrained' in method_name or 'Ustun-aligned' in method_name:
         return sum(bounds_norm[ft] * abs(cf[ft] - orig[ft]) for ft in bounds_norm)
     elif method_name == 'Fairness-weighted discrete search':
         w_domain = {'studytime': 1.0, 'absences': 1.5, 'freetime': 1.0, 'goout': 1.0}
         return sum(w_domain[ft] * bounds_norm[ft] * abs(cf[ft] - orig[ft]) for ft in bounds_norm)
-    else: # Proposed Fair DAG-Informed Recourse
+    else: # Proposed SES-Sensitive Difficulty-Weighted Recourse
         if ses == 0:
             w_custom = {'studytime': 1.0, 'absences': 2.0, 'freetime': 1.0, 'goout': 1.0}
         else:
@@ -124,10 +124,10 @@ def compute_scoring_cost(orig, cf, ses, method_name):
 seeds = list(range(42, 52)) # 10 random seeds
 ablation_methods = [
     'Unconstrained discrete search (DiCE-style)',
-    'Actionable Recourse (Ustun-style discrete grid)',
+    'Actionability-constrained search (Ustun-aligned bounds)',
     'Fairness-weighted discrete search',
-    'Proposed Fair DAG-Informed Recourse',
-    'FACE-like kNN graph recourse (Equal budget K)'
+    'Proposed SES-Sensitive Difficulty-Weighted Recourse',
+    'Manifold nearest-neighbor recourse baseline'
 ]
 
 seed_results = {m: [] for m in ablation_methods}
@@ -135,7 +135,8 @@ pop_flow_records = []
 pre_post_probs = {m: {'pre': [], 'post': []} for m in ablation_methods}
 feature_shifts_log = []
 
-# Pre-generate delta grids
+# Full candidate discrete space: 4 * 94 * 5 * 5 = 9,400 points
+# Directional candidate search grid constructed under actionability bounds: K = 700 candidates
 unconstrained_deltas = []
 for d_s in [-2, -1, 0, 1, 2, 3]:
     for d_a in [0, -2, -5, -8, -12, -15, 2, 5]:
@@ -150,7 +151,7 @@ for d_s in [0, 1, 2, 3]:
             for d_g in [-2, -1, 0, 1, 2]:
                 constrained_deltas.append((d_s, d_a, d_f, d_g))
 
-CANDIDATE_BUDGET_K = len(constrained_deltas) # K = 700 candidates
+GRID_SEARCH_BUDGET_K = len(constrained_deltas) # K = 700 candidates
 
 for seed in seeds:
     X_tr, X_te, y_tr, y_te = train_test_split(X, y, test_size=0.2, random_state=seed, stratify=y)
@@ -193,8 +194,8 @@ for seed in seeds:
             best_cf = None
             best_score = float('inf')
             
-            if 'FACE-like' in method:
-                # FACE-like baseline under controlled search budget K
+            if 'Manifold nearest-neighbor' in method:
+                # Manifold nearest-neighbor recourse baseline evaluating passing training instances satisfying directional bounds
                 valid_neighbors = train_passing[
                     (train_passing['studytime'] >= orig['studytime']) &
                     (train_passing['absences'] <= orig['absences'])
@@ -205,18 +206,15 @@ for seed in seeds:
                     valid_neighbors['failures'] = orig['failures']
                     valid_neighbors['SES'] = orig['SES']
                     
-                    # Compute distances to all passing candidates
+                    # Compute distances to passing training instances
                     dists = [compute_standard_eval_cost(orig, valid_neighbors.iloc[n_i]) for n_i in range(len(valid_neighbors))]
                     valid_neighbors['dist'] = dists
                     
-                    # Limit candidate pool to top K nearest candidates (equal search budget K)
-                    top_k_neighbors = valid_neighbors.sort_values(by='dist').head(CANDIDATE_BUDGET_K)
-                    
-                    probs = clf.predict_proba(top_k_neighbors[features])[:, 1]
+                    probs = clf.predict_proba(valid_neighbors[features])[:, 1]
                     valid_mask = (probs >= 0.5)
                     
                     if np.any(valid_mask):
-                        passing_neighbors = top_k_neighbors[valid_mask]
+                        passing_neighbors = valid_neighbors[valid_mask]
                         for n_idx in range(len(passing_neighbors)):
                             neighbor = passing_neighbors.iloc[n_idx]
                             c = compute_standard_eval_cost(orig, neighbor)
@@ -224,7 +222,7 @@ for seed in seeds:
                                 best_score = c
                                 best_cf = neighbor
             else:
-                # Vectorized candidate grid evaluation
+                # Vectorized candidate grid evaluation (K = 700 candidates)
                 cands = np.tile(orig[features].values, (len(deltas_arr), 1))
                 cands[:, 1] = np.clip(cands[:, 1] + deltas_arr[:, 0], 1, 4) # studytime
                 cands[:, 3] = np.clip(cands[:, 3] + deltas_arr[:, 1], 0, 93) # absences
@@ -347,13 +345,13 @@ stat_tests = []
 unconstrained_lows = ablation_summary[0]['lows_list']
 actionable_lows = ablation_summary[1]['lows_list']
 proposed_lows = ablation_summary[3]['lows_list']
-face_lows = ablation_summary[4]['lows_list']
+knn_lows = ablation_summary[4]['lows_list']
 
-# Pair 1: Unconstrained vs Actionable
+# Pair 1: Unconstrained vs Actionable (Ustun-aligned)
 t_stat, p_val_t = stats.ttest_rel(unconstrained_lows, actionable_lows)
 w_stat, p_val_w = stats.wilcoxon(unconstrained_lows, actionable_lows)
 stat_tests.append({
-    'Comparison': 'Unconstrained vs Actionable (Ustun)',
+    'Comparison': 'Unconstrained vs Actionable (Ustun-aligned)',
     'Metric': 'Low SES Cost (mu_L)',
     'Mean Diff (B - A)': np.mean(actionable_lows) - np.mean(unconstrained_lows),
     't-statistic': t_stat,
@@ -363,11 +361,11 @@ stat_tests.append({
     'Significant (p < 0.05)': p_val_t < 0.05
 })
 
-# Pair 2: Actionable vs Proposed
+# Pair 2: Actionable vs Proposed Difficulty-Weighted
 t_stat, p_val_t = stats.ttest_rel(actionable_lows, proposed_lows)
 w_stat, p_val_w = stats.wilcoxon(actionable_lows, proposed_lows)
 stat_tests.append({
-    'Comparison': 'Actionable vs Proposed Fair DAG',
+    'Comparison': 'Actionable vs Proposed Difficulty-Weighted',
     'Metric': 'Low SES Cost (mu_L)',
     'Mean Diff (B - A)': np.mean(proposed_lows) - np.mean(actionable_lows),
     't-statistic': t_stat,
@@ -377,13 +375,13 @@ stat_tests.append({
     'Significant (p < 0.05)': p_val_t < 0.05
 })
 
-# Pair 3: Actionable vs FACE-like kNN
-t_stat, p_val_t = stats.ttest_rel(actionable_lows, face_lows)
-w_stat, p_val_w = stats.wilcoxon(actionable_lows, face_lows)
+# Pair 3: Actionable vs Manifold kNN Baseline
+t_stat, p_val_t = stats.ttest_rel(actionable_lows, knn_lows)
+w_stat, p_val_w = stats.wilcoxon(actionable_lows, knn_lows)
 stat_tests.append({
-    'Comparison': 'Actionable vs FACE-like kNN',
+    'Comparison': 'Actionable vs Manifold kNN Baseline',
     'Metric': 'Low SES Cost (mu_L)',
-    'Mean Diff (B - A)': np.mean(face_lows) - np.mean(actionable_lows),
+    'Mean Diff (B - A)': np.mean(knn_lows) - np.mean(actionable_lows),
     't-statistic': t_stat,
     'p-value (t-test)': p_val_t,
     'Wilcoxon W': w_stat,
@@ -478,7 +476,7 @@ sns.set_theme(style="whitegrid", font_scale=1.1)
 
 # Figure 1: Optimization Results Bar Plot
 fig, ax = plt.subplots(figsize=(10, 6))
-methods_short = ['Unconstrained\n(DiCE-style)', 'Actionable\n(Ustun)', 'Fairness\nWeighted', 'Proposed\nFair DAG', 'FACE-like\nkNN']
+methods_short = ['Unconstrained\n(DiCE-style)', 'Actionable\n(Ustun-aligned)', 'Fairness\nWeighted', 'Proposed\nDifficulty-Wtd', 'Manifold\nkNN']
 low_vals = [a['raw_low'] for a in ablation_summary]
 high_vals = [a['raw_high'] for a in ablation_summary]
 
@@ -505,8 +503,8 @@ plt.close()
 
 # Figure 2: Pre vs Post Passing Probability
 fig, ax = plt.subplots(figsize=(8, 5))
-prop_pre = pre_post_probs['Proposed Fair DAG-Informed Recourse']['pre']
-prop_post = pre_post_probs['Proposed Fair DAG-Informed Recourse']['post']
+prop_pre = pre_post_probs['Proposed SES-Sensitive Difficulty-Weighted Recourse']['pre']
+prop_post = pre_post_probs['Proposed SES-Sensitive Difficulty-Weighted Recourse']['post']
 
 mean_pre = np.mean(prop_pre)
 mean_post = np.mean(prop_post)
@@ -550,7 +548,7 @@ if len(feature_shifts_log) > 0:
     plt.close()
 
 # 8. GENERATE RESULTS_FOR_PAPER.MD
-markdown_results = f"""# Official Empirical Execution Results (DAG-Informed Actionable Recourse)
+markdown_results = f"""# Official Empirical Execution Results (DAG-Informed Recourse Analytics)
 
 **Dataset**: UCI Student Performance (`student-por.csv`, N = {len(df)})  
 **Primary SES Definition**: Composite Index (`(Medu + Fedu + famsize_small + internet_yes) >= median`)  

@@ -1,4 +1,4 @@
 Comparison,Metric,Mean Diff (B - A),t-statistic,p-value (t-test),Wilcoxon W,p-value (Wilcoxon),Significant (p < 0.05)
-Unconstrained vs Actionable (Ustun),Low SES Cost (mu_L),0.11330753774302157,-3.7350470873216626,0.004660994941131998,0.0,0.00390625,True
-Actionable vs Proposed Fair DAG,Low SES Cost (mu_L),0.0027217741935484097,-1.4885581853339223,0.1707826124461952,0.0,0.5,False
-Actionable vs FACE-like kNN,Low SES Cost (mu_L),0.04134920634920641,-1.8456681856297084,0.09802415906010671,8.0,0.09765625,False
+Unconstrained vs Actionable (Ustun-aligned),Low SES Cost (mu_L),0.11330753774302157,-3.7350470873216626,0.004660994941131998,0.0,0.00390625,True
+Actionable vs Proposed Difficulty-Weighted,Low SES Cost (mu_L),0.0027217741935484097,-1.4885581853339223,0.1707826124461952,0.0,0.5,False
+Actionable vs Manifold kNN Baseline,Low SES Cost (mu_L),0.04134920634920641,-1.8456681856297084,0.09802415906010671,8.0,0.09765625,False

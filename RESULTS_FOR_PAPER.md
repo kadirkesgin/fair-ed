@@ -1,4 +1,4 @@
-# Official Empirical Execution Results (DAG-Informed Actionable Recourse)
+# Official Empirical Execution Results (DAG-Informed Recourse Analytics)
 
 **Dataset**: UCI Student Performance (`student-por.csv`, N = 649)  
 **Primary SES Definition**: Composite Index (`(Medu + Fedu + famsize_small + internet_yes) >= median`)  
@@ -23,10 +23,10 @@
 | Methodology | Low SES Cost (mu_L) | High SES Cost (mu_H) | RFD (E[|mu_L,s - mu_H,s|]) | RBR_L (%) | Validity (%) | Valid Students |
 | :--- | :---: | :---: | :---: | :---: | :---: | :---: |
 | Unconstrained discrete search (DiCE-style) | 0.2248 ± 0.0734 | 0.1496 ± 0.0726 | 0.1131 ± 0.0635 | Reference | 98.5% ± 3.0% | 11.9 / 12.1 |
-| Actionable Recourse (Ustun-style discrete grid) | 0.3381 ± 0.1457 | 0.2638 ± 0.1633 | 0.1585 ± 0.1038 | -50.4% ± 64.8% | 95.5% ± 4.7% | 11.5 / 12.1 |
+| Actionability-constrained search (Ustun-aligned bounds) | 0.3381 ± 0.1457 | 0.2638 ± 0.1633 | 0.1585 ± 0.1038 | -50.4% ± 64.8% | 95.5% ± 4.7% | 11.5 / 12.1 |
 | Fairness-weighted discrete search | 0.3381 ± 0.1457 | 0.2638 ± 0.1633 | 0.1585 ± 0.1038 | -50.4% ± 64.8% | 95.5% ± 4.7% | 11.5 / 12.1 |
-| Proposed Fair DAG-Informed Recourse | 0.3408 ± 0.1441 | 0.2638 ± 0.1633 | 0.1613 ± 0.1038 | -51.6% ± 64.1% | 95.5% ± 4.7% | 11.5 / 12.1 |
-| FACE-like kNN graph recourse (Equal budget K) | 0.3795 ± 0.1462 | 0.3078 ± 0.1740 | 0.1736 ± 0.0967 | -68.8% ± 65.0% | 98.6% ± 4.3% | 11.9 / 12.1 |
+| Proposed SES-Sensitive Difficulty-Weighted Recourse | 0.3408 ± 0.1441 | 0.2638 ± 0.1633 | 0.1613 ± 0.1038 | -51.6% ± 64.1% | 95.5% ± 4.7% | 11.5 / 12.1 |
+| Manifold nearest-neighbor recourse baseline | 0.3795 ± 0.1462 | 0.3078 ± 0.1740 | 0.1736 ± 0.0967 | -68.8% ± 65.0% | 98.6% ± 4.3% | 11.9 / 12.1 |
 
 ---
 
@@ -34,9 +34,9 @@
 
 | Comparison | Metric | Mean Diff | p-value (t-test) | p-value (Wilcoxon) | Significant (p < 0.05) |
 | :--- | :--- | :---: | :---: | :---: | :---: |
-| Unconstrained vs Actionable (Ustun) | Low SES Cost (mu_L) | 0.1133 | 4.6610e-03 | 3.9062e-03 | True |
-| Actionable vs Proposed Fair DAG | Low SES Cost (mu_L) | 0.0027 | 1.7078e-01 | 5.0000e-01 | False |
-| Actionable vs FACE-like kNN | Low SES Cost (mu_L) | 0.0413 | 9.8024e-02 | 9.7656e-02 | False |
+| Unconstrained vs Actionable (Ustun-aligned) | Low SES Cost (mu_L) | 0.1133 | 4.6610e-03 | 3.9062e-03 | True |
+| Actionable vs Proposed Difficulty-Weighted | Low SES Cost (mu_L) | 0.0027 | 1.7078e-01 | 5.0000e-01 | False |
+| Actionable vs Manifold kNN Baseline | Low SES Cost (mu_L) | 0.0413 | 9.8024e-02 | 9.7656e-02 | False |
 
 ---
 
