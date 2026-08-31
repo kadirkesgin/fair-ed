@@ -404,7 +404,7 @@ To evaluate whether observed cost differences across methods are statistically m
 
 Enforcing directional actionability constraints ($\delta_{\text{study}} \ge 0, \delta_{\text{abs}} \le 0$) significantly increased Low-SES recourse cost from $\mu_L = 0.2248$ (Unconstrained) to $\mu_L = 0.3381$ (Actionability-Constrained Search), representing a statistically significant Actionability Cost Premium ($+0.1133$ mean cost increase; paired $t(9) = 3.72, p = 0.0047$; Wilcoxon $W = 0.0, p = 0.0039$). 
 
-Conversely, cost differences between Actionability-Constrained Search ($\mu_L = 0.3381$) and Proposed Difficulty-Weighted Recourse ($\mu_L = 0.3408$, mean diff $+0.0027$, $t(9) = 1.49, p = 0.1708$; Wilcoxon $W = 5.0, p = 0.5000$) were not statistically significant, confirming that friction weighting produced minimal cost impact under standard candidate grids. Similarly, the Manifold nearest-neighbor baseline ($\mu_L = 0.3795$) yielded a higher mean distance ($+0.0413$), but the difference relative to Actionability-Constrained Search was not statistically significant ($t(9) = 1.83, p = 0.0980$; Wilcoxon $W = 10.0, p = 0.0977$).
+Conversely, cost differences between Actionability-Constrained Search ($\mu_L = 0.3381$) and Proposed Difficulty-Weighted Recourse ($\mu_L = 0.3408$, mean diff $+0.0027$, $t(9) = 1.49, p = 0.1708$; Wilcoxon $W = 0.0, p = 0.5000$) were not statistically significant, confirming that friction weighting produced minimal cost impact under standard candidate grids. Similarly, the Manifold nearest-neighbor baseline ($\mu_L = 0.3795$) yielded a higher mean distance ($+0.0413$), but the difference relative to Actionability-Constrained Search was not statistically significant ($t(9) = 1.85, p = 0.0980$; Wilcoxon $W = 8.0, p = 0.0977$). All 10 per-seed fold metrics ($\mu_{L,s}, \mu_{H,s}, |\mu_{L,s}-\mu_{H,s}|$) are exported to \texttt{outputs/tables/heldout\_by\_seed.csv}.
 
 \begin{figure}[H]
     \centering
@@ -426,7 +426,7 @@ Table~\ref{tab:two_tier_benchmark} presents the two-tier comparison structuring 
 \toprule
 \textbf{Method} & \textbf{Category} & \textbf{Execution Status} & \textbf{Implementation Rationale / Requirements} \\
 \midrule
-Unconstrained discrete & Empirical & Evaluated ($K=700$) & Baseline unconstrained search across directional discrete grid. \\
+Unconstrained discrete & Empirical & Evaluated ($K=700$) & Baseline unconstrained search across discrete feature space. \\
 Actionability-constrained & Empirical & Evaluated ($K=700$) & Directional actionability bounds ($\delta_{\text{study}} \ge 0, \delta_{\text{abs}} \le 0$). \\
 Fairness-weighted search & Empirical & Evaluated ($K=700$) & Directional bounds + domain difficulty weights ($w_{\text{abs}}=1.5$). \\
 Proposed Difficulty-Weighted & Empirical & Evaluated ($K=700$) & Joint directional actionability + structural attendance friction ($w_{\text{abs}}^{\text{Low}}=2.0$). \\
@@ -454,7 +454,7 @@ Figure~\ref{fig:efficacy} shows model-predicted passing probabilities before and
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.90\linewidth]{outputs/figures/fig3_feature_shifts.png}
-    \caption{\hlbox{Actionable feature shifts for Proposed Fair Causal Recourse across original UCI discrete scales ($\delta_{\text{study}} \ge 0, \delta_{\text{abs}} \le 0$).}}
+    \caption{\hlbox{Actionable feature shifts for Proposed SES-Sensitive Difficulty-Weighted Recourse across original UCI discrete scales ($\delta_{\text{study}} \ge 0, \delta_{\text{abs}} \le 0$).}}
     \label{fig:feature_shifts}
 \end{figure}
 
