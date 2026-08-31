@@ -21,7 +21,7 @@
 \setlength{\parindent}{0pt}
 \setlength{\parskip}{1\baselineskip}
 
-\title{\hlbox{Fair causal recourse for student academic performance prediction}}
+\title{\hlbox{DAG-informed actionable recourse for student academic performance prediction}}
 
 \author{
     Kadir Kesgin\textsuperscript{1,*}, Funda U\u{g}urlu\textsuperscript{2} \\[3mm]
@@ -40,11 +40,11 @@
 \maketitle
 
 \begin{abstract}
-Educational data mining has made substantial progress in predicting student academic performance, yet most studies remain focused on risk identification rather than model-based recourse design. Explainable AI methods can highlight influential predictors, but they do not necessarily specify which changes are causally meaningful, practically feasible, and equitable across student groups. This study proposes a fair causal recourse framework that moves beyond prediction-oriented early warning toward actionable and fairness-aware model-based recourse support.
+Educational data mining has made substantial progress in predicting student academic performance, yet most studies remain focused on risk identification rather than model-based recourse design. Explainable AI methods can highlight influential predictors, but they do not necessarily specify which changes are causally meaningful, practically feasible, and equitable across student groups. This study proposes a DAG-informed actionable algorithmic recourse framework that moves beyond prediction-oriented early warning toward actionable and fairness-aware model-based recourse support.
 
 Using the UCI Student Performance dataset (\textit{student-por.csv}, $N=649$), we evaluated student performance prediction without final grades ($G1/G2$) \hlbox{using 5-fold stratified cross-validation} (Accuracy: \hlbox{$0.8335 \pm 0.0156$}, ROC AUC: \hlbox{$0.7263 \pm 0.0556$}, Class Prevalence: $84.6\%$ pass, $15.4\%$ fail). We then implemented an actionability- and DAG-constrained recourse optimization pipeline across 10 random seeds to generate counterfactual recommendations under discrete UCI scale boundaries. Socioeconomic status (SES) was operationalized via a composite index combining parental education, family size, and digital access.
 
-Across multi-seed evaluation, the proposed framework produced valid recourse recommendations (validity rate \hlbox{$95.5\% \pm 4.7\%$}) while restricting interventions to plausible academic levers (e.g., non-decreasing study time and non-increasing absenteeism). Average recourse distances under group-independent evaluation metrics were \hlbox{$\mu_L = 0.3408 \pm 0.1441$} for Low-SES students and \hlbox{$\mu_H = 0.2638 \pm 0.1633$} for High-SES students (\hlbox{$\text{RFD} = 0.1613 \pm 0.1038$}). Furthermore, recommendations shifted model predictions, increasing the average model-predicted passing probability for failing students from \hlbox{$0.2866$ before recourse} to \hlbox{$0.5975$ after recourse}.
+Across multi-seed evaluation, the proposed framework produced valid recourse recommendations for an average of $11.5 \text{ out of } 12.1$ predicted failing students per test fold (validity rate \hlbox{$95.5\% \pm 4.7\%$}) while restricting interventions to plausible academic levers (e.g., non-decreasing study time and non-increasing absenteeism). Average recourse distances under group-independent evaluation metrics were \hlbox{$\mu_L = 0.3408 \pm 0.1441$} for Low-SES students and \hlbox{$\mu_H = 0.2638 \pm 0.1633$} for High-SES students (seed-indexed \hlbox{$\text{RFD} = \mathbb{E}[|\mu_{L,s} - \mu_{H,s}|] = 0.1613 \pm 0.1038$}, macro group difference $|\bar{\mu}_L - \bar{\mu}_H| = 0.0771$). Furthermore, recommendations shifted model predictions, increasing the average model-predicted passing probability for failing students from \hlbox{$0.2866$ before recourse} to \hlbox{$0.5975$ after recourse}.
 
 \hlblock{Constrained search raises recourse distance relative to unconstrained search while keeping high validity, and the observed probability shift is model-based decision-boundary crossing rather than evidence of educational effectiveness. Fairness weighting did not reduce group-independent distance beyond actionability constraints alone. Overall, model-based recourse in education highlights the trade-off between unconstrained optimization and actionable feasibility, demonstrating that responsible educational AI must evaluate the realistic constraints of recommended success pathways.}
 \end{abstract}
@@ -229,7 +229,7 @@ To align with domain literature, the primary SES variable was constructed as an 
 \end{equation}
 where $\text{famsize\_small} = 1$ if family size $\le 3$ and $\text{internet\_yes} = 1$ if internet access is available at home. Students were split at the median score into Low SES ($\text{SES}=0$, $N=307$) and High SES ($\text{SES}=1$, $N=342$).
 
-\subsection{Causal DAG assumptions}
+\subsection{Causal DAG assumptions and edge justifications}
 \label{subsec:causal_dag}
 
 Recourse recommendations are constrained by an assumed educational Directed Acyclic Graph (DAG), as illustrated in Figure~\ref{fig:dag}.
@@ -237,9 +237,17 @@ Recourse recommendations are constrained by an assumed educational Directed Acyc
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.85\linewidth]{sci_fig0_causal_dag.png}
-    \caption{Assumed educational causal DAG. DAG parent restrictions mean immutable/sensitive features remain fixed while only actionable features vary under directional constraints. Structural equations are not estimated, and downstream $do()$ propagation is not performed.}
+    \caption{Assumed educational causal DAG. Directed edges represent domain-informed structural dependencies based on educational literature. DAG parent restrictions mean immutable/sensitive features remain fixed while only actionable features vary under directional constraints. Structural equations are not estimated, and downstream $do()$ propagation is not performed.}
     \label{fig:dag}
 \end{figure}
+
+The directed edges in Figure~\ref{fig:dag} encode structural dependencies derived from established educational literature:
+\begin{enumerate}
+    \item $\text{SES} \to \text{Medu/Fedu}, \text{famsize}, \text{internet}$: Socioeconomic status directly determines household digital access, family size constraints, and parental educational background \cite{Sirin2005}.
+    \item $\text{Medu/Fedu} \to \text{studytime}, \text{absences}$: Higher parental education correlates with enhanced home learning support, structured study habits, and lower student absenteeism \cite{Castro2015,OECD2018}.
+    \item $\text{studytime} \to y$: Academic time investment is a direct behavioral determinant of subject mastery and passing probability \cite{Plant2005,Nonis2010}.
+    \item $\text{absences} \to y$: Chronic absenteeism directly reduces instructional exposure, impairing academic performance \cite{Gottfried2014,Gershenson2019}.
+\end{enumerate}
 
 \hlblock{DAG parent restrictions mean immutable/sensitive features remain fixed while only actionable features vary under directional constraints. Structural equations are not estimated, and downstream $do()$ propagation is not performed.}
 
@@ -251,44 +259,54 @@ Recourse recommendations are constrained by an assumed educational Directed Acyc
 \subsection{Mathematical optimization formulation}
 \label{subsec:optimization}
 
-We evaluate four ablation conditions under a discrete candidate search grid:
+We evaluate five recourse conditions (four candidate-grid optimization methods and one graph manifold baseline) under a discrete candidate search space $\mathcal{F}_{\text{discrete}} = \mathcal{X}_{\text{study}} \times \mathcal{X}_{\text{abs}} \times \mathcal{X}_{\text{free}} \times \mathcal{X}_{\text{go}}$. For each student $i$ predicted to fail ($f(\mathbf{x}_i) < \tau=0.50$), candidate counterfactual vectors are drawn from $\mathcal{F}_{\text{discrete}}$ under a controlled candidate search budget $K = |\mathcal{F}_{\text{discrete}}| = 700$ grid points:
 
 1. \textbf{Unconstrained discrete search (DiCE-style)}:
 \begin{equation}
-\min_{\boldsymbol{\delta}} \mathcal{C}_{\text{unweighted}}(\boldsymbol{\delta}) \quad \text{s.t.} \quad f(\mathbf{x} + \boldsymbol{\delta}) \ge \tau, \quad (\mathbf{x} + \boldsymbol{\delta}) \in \mathcal{F}_{\text{discrete}}
+\min_{\boldsymbol{\delta}} \mathcal{C}_{\text{unweighted}}(\boldsymbol{\delta}) \quad \text{s.t.} \quad f(\mathbf{x}_i + \boldsymbol{\delta}) \ge \tau, \quad (\mathbf{x}_i + \boldsymbol{\delta}) \in \mathcal{F}_{\text{discrete}}
 \end{equation}
-where features may shift in any direction.
+where features may shift in any direction under unweighted distance $\mathcal{C}_{\text{unweighted}}(\boldsymbol{\delta}) = \sum_{j \in \text{actionable}} \lambda_j |\delta_j|$.
 
-2. \textbf{Actionability-constrained discrete search}:
+2. \textbf{Actionable Recourse (Ustun-style discrete grid)}:
 \begin{equation}
-\min_{\boldsymbol{\delta}} \mathcal{C}_{\text{unweighted}}(\boldsymbol{\delta}) \quad \text{s.t.} \quad f(\mathbf{x} + \boldsymbol{\delta}) \ge \tau, \quad \delta_{\text{study}} \ge 0, \quad \delta_{\text{abs}} \le 0
+\min_{\boldsymbol{\delta}} \mathcal{C}_{\text{unweighted}}(\boldsymbol{\delta}) \quad \text{s.t.} \quad f(\mathbf{x}_i + \boldsymbol{\delta}) \ge \tau, \quad \delta_{\text{study}} \ge 0, \quad \delta_{\text{abs}} \le 0, \quad (\mathbf{x}_i + \boldsymbol{\delta}) \in \mathcal{F}_{\text{discrete}}
 \end{equation}
-enforcing non-decreasing study time and non-increasing absences under unweighted normalized feature distance $\mathcal{C}_{\text{unweighted}}(\boldsymbol{\delta}) = \sum_j \lambda_j |\delta_j|$.
+enforcing directional actionability bounds (non-decreasing study time and non-increasing absences).
 
 3. \textbf{Fairness-weighted discrete search}:
 Enforces actionability constraints while incorporating domain difficulty weights $w_j$ ($w_{\text{study}}=1.0, w_{\text{abs}}=1.5, w_{\text{free}}=1.0, w_{\text{go}}=1.0$) during candidate scoring:
 \begin{equation}
-\mathcal{C}_{\text{domain}}(\boldsymbol{\delta}) = \sum_{j \in \text{actionable}} w_j \lambda_j |\delta_j|
+\min_{\boldsymbol{\delta}} \mathcal{C}_{\text{domain}}(\boldsymbol{\delta}) \quad \text{s.t.} \quad f(\mathbf{x}_i + \boldsymbol{\delta}) \ge \tau, \quad \delta_{\text{study}} \ge 0, \quad \delta_{\text{abs}} \le 0, \quad (\mathbf{x}_i + \boldsymbol{\delta}) \in \mathcal{F}_{\text{discrete}}
 \end{equation}
-where bounds normalization factors are $\lambda_{\text{study}}=1/3, \lambda_{\text{abs}}=1/93, \lambda_{\text{free}}=1/4, \lambda_{\text{go}}=1/4$.
+where $\mathcal{C}_{\text{domain}}(\boldsymbol{\delta}) = \sum_{j \in \text{actionable}} w_j \lambda_j |\delta_j|$ and bounds normalization factors are $\lambda_{\text{study}}=1/3, \lambda_{\text{abs}}=1/93, \lambda_{\text{free}}=1/4, \lambda_{\text{go}}=1/4$.
 
-4. \textbf{Proposed Fair Causal Recourse}:
-Joint actionability constraints and candidate selection incorporating structural attendance friction weights for Low-SES students ($w_{\text{abs}}^{\text{Low}}=2.0$).
+4. \textbf{Proposed Fair DAG-Informed Recourse}:
+Joint actionability constraints and candidate scoring incorporating structural attendance friction weights for Low-SES students ($w_{\text{abs}}^{\text{Low}}=2.0$):
+\begin{equation}
+\min_{\boldsymbol{\delta}} \mathcal{C}_{\text{scoring}}(\boldsymbol{\delta}, \text{SES}_i) \quad \text{s.t.} \quad f(\mathbf{x}_i + \boldsymbol{\delta}) \ge \tau, \quad \delta_{\text{study}} \ge 0, \quad \delta_{\text{abs}} \le 0, \quad (\mathbf{x}_i + \boldsymbol{\delta}) \in \mathcal{F}_{\text{discrete}}
+\end{equation}
+where $\mathcal{C}_{\text{scoring}}(\boldsymbol{\delta}, \text{SES}_i) = \sum_{j \in \text{actionable}} w_j(\text{SES}_i) \lambda_j |\delta_j|$, with $w_{\text{abs}}(0) = 2.0$ and $w_{\text{abs}}(1) = 1.0$.
 
-5. \textbf{FACE-like kNN graph recourse}:
-Finds the nearest passing instance in the training set satisfying actionability constraints. (Note: Nearest-neighbor baseline on dataset manifold, not a sampled-K optimization method).
+5. \textbf{FACE-like kNN graph recourse (Equal search budget $K$)}:
+Finds the nearest passing instance in the training set manifold satisfying directional actionability bounds ($\delta_{\text{study}} \ge 0, \delta_{\text{abs}} \le 0$), evaluated over top-$K$ distance-ranked training passing instances ($K=700$).
 
-\subsection{Fairness evaluation metrics}
+\textbf{Candidate Selection and Tie-Breaking Rule}: If multiple valid candidate vectors satisfy $f(\mathbf{x}_i + \boldsymbol{\delta}) \ge \tau$ with identical minimal scoring cost, candidate selection breaks ties deterministically by selecting the candidate with (i)~smallest study time increase $\delta_{\text{study}}$, (ii)~smallest absolute absence change $|\delta_{\text{abs}}|$, and (iii)~first index in the pre-generated candidate grid.
+
+\textbf{Fairness Component Clarification}: The fairness component in the proposed method functions as an asymmetric feature difficulty weight $w_{\text{abs}}(\text{Low})=2.0$ reflecting structural attendance friction, rather than a group-inequality penalty term optimized in the loss objective.
+
+\subsection{Fairness evaluation metrics and seed-indexed RFD formulation}
 \label{subsec:metrics}
 
 To evaluate all methods on an unbiased, group-independent benchmark scale, evaluation cost is defined as pure normalized feature shift distance:
 \begin{align}
-\hlbox{$\mathcal{C}_{\text{eval}}(\boldsymbol{\delta})$} &\hlbox{$= \sum_{j \in \text{actionable}} \lambda_j |\delta_j|$} \\
-\text{RFD} &= |\mu_L - \mu_H| \\
+\mathcal{C}_{\text{eval}}(\boldsymbol{\delta}) &= \sum_{j \in \text{actionable}} \lambda_j |\delta_j| \\
+\text{RFD} &= \frac{1}{S} \sum_{s=1}^{S} |\mu_{L,s} - \mu_{H,s}| \\
 \Delta_g &= \mu_g^{\text{base}} - \mu_g^{\text{method}} \\
 \text{RBR}_L &= \frac{\mu_L^{\text{base}} - \mu_L^{\text{method}}}{\mu_L^{\text{base}}} \times 100\%
 \end{align}
-where $\mu_L$ and $\mu_H$ are mean group normalized distances, $\text{RFD}$ is the Recourse Fairness Difference, and $\text{RBR}_L$ is the Recourse Burden Reduction for Low-SES students relative to unconstrained search.
+where $s \in \{1, \dots, S\}$ indexes evaluation splits (seeds, $S=10$), and $\mu_{L,s}$ and $\mu_{H,s}$ denote the mean group recourse costs within fold $s$. 
+
+Because fold-level cost variations exist across test splits, Jensen's inequality implies that the expected value of fold-level absolute differences $\text{RFD} = \frac{1}{S}\sum_{s=1}^S |\mu_{L,s} - \mu_{H,s}| \ge |\bar{\mu}_L - \bar{\mu}_H|$, where $\bar{\mu}_L = \frac{1}{S}\sum_s \mu_{L,s}$ and $\bar{\mu}_H = \frac{1}{S}\sum_s \mu_{H,s}$ are the macro multi-seed group means. In empirical tables, we report the sample expectation of per-seed group absolute differences $\text{RFD} = 0.1613 \pm 0.1038$, while the macro difference between overall group means is $|\bar{\mu}_L - \bar{\mu}_H| = |0.3408 - 0.2638| = 0.0771$. $\text{RBR}_L$ measures the Recourse Burden Reduction for Low-SES students relative to unconstrained search.
 
 \section{Results}
 \label{sec:results}
@@ -333,27 +351,38 @@ Mean High SES Predicted Failures ($N_{\text{fail,High}}$) & 3.2 \\
 
 \subsection{Multi-seed recourse and ablation evaluation}
 
-Table~\ref{tab:ablation_results} presents multi-seed recourse costs, RFD, $\text{RBR}_L$, and validity across 10 random seeds (seeds 42--51).
+Table~\ref{tab:ablation_results} presents multi-seed recourse costs, RFD, $\text{RBR}_L$, validity rates, and absolute valid student counts across 10 random seeds (seeds 42--51).
 
 \begin{table}[H]
 \centering
-\caption{Multi-Seed Recourse and Ablation Results across 10 Random Seeds (mean $\pm$ SD)}
+\caption{Multi-Seed Recourse and Ablation Results across 10 Random Seeds (mean $\pm$ SD, search budget $K=700$ candidates per student)}
 \label{tab:ablation_results}
 \small
-\begin{tabular}{lccccc}
+\setlength{\tabcolsep}{4pt}
+\begin{tabular}{lcccccc}
 \toprule
-\textbf{Methodology} & \textbf{Low Cost ($\mu_L$)} & \textbf{High Cost ($\mu_H$)} & \textbf{RFD ($|\mu_L - \mu_H|$)} & \textbf{$\text{RBR}_L$ (\%)} & \textbf{Validity} \\
+\textbf{Methodology} & \textbf{Low Cost ($\mu_L$)} & \textbf{High Cost ($\mu_H$)} & \textbf{RFD ($\mathbb{E}[|\mu_{L,s} - \mu_{H,s}|]$)} & \textbf{$\text{RBR}_L$ (\%)} & \textbf{Validity (\%)} & \textbf{Valid Students} \\
 \midrule
-Unconstrained discrete search & $0.2248 \pm 0.0734$ & $0.1496 \pm 0.0726$ & $0.1131 \pm 0.0635$ & \hlbox{Reference} & $98.5\% \pm 3.0\%$ \\
-Actionability-constrained search & $0.3381 \pm 0.1457$ & $0.2638 \pm 0.1633$ & $0.1585 \pm 0.1038$ & $-50.4\% \pm 64.8\%$ & $95.5\% \pm 4.7\%$ \\
-Fairness-weighted search\textsuperscript{$\dagger$} & $0.3381 \pm 0.1457$ & $0.2638 \pm 0.1633$ & $0.1585 \pm 0.1038$ & $-50.4\% \pm 64.8\%$ & $95.5\% \pm 4.7\%$ \\
-Proposed Fair Causal Recourse & $0.3408 \pm 0.1441$ & $0.2638 \pm 0.1633$ & $0.1613 \pm 0.1038$ & $-51.6\% \pm 64.1\%$ & $95.5\% \pm 4.7\%$ \\
-FACE-like kNN graph recourse\textsuperscript{*} & $0.3795 \pm 0.1462$ & $0.3078 \pm 0.1740$ & $0.1736 \pm 0.0967$ & $-68.8\% \pm 65.0\%$ & $98.6\% \pm 4.3\%$ \\
+Unconstrained discrete search & $0.2248 \pm 0.0734$ & $0.1496 \pm 0.0726$ & $0.1131 \pm 0.0635$ & Reference & $98.5\% \pm 3.0\%$ & $11.9 / 12.1$ \\
+Actionable Recourse (Ustun-style)\textsuperscript{\#} & $0.3381 \pm 0.1457$ & $0.2638 \pm 0.1633$ & $0.1585 \pm 0.1038$ & $-50.4\% \pm 64.8\%$ & $95.5\% \pm 4.7\%$ & $11.5 / 12.1$ \\
+Fairness-weighted search\textsuperscript{$\dagger$} & $0.3381 \pm 0.1457$ & $0.2638 \pm 0.1633$ & $0.1585 \pm 0.1038$ & $-50.4\% \pm 64.8\%$ & $95.5\% \pm 4.7\%$ & $11.5 / 12.1$ \\
+Proposed Fair DAG-Informed Recourse & $0.3408 \pm 0.1441$ & $0.2638 \pm 0.1633$ & $0.1613 \pm 0.1038$ & $-51.6\% \pm 64.1\%$ & $95.5\% \pm 4.7\%$ & $11.5 / 12.1$ \\
+FACE-like kNN graph recourse\textsuperscript{*} & $0.3795 \pm 0.1462$ & $0.3078 \pm 0.1740$ & $0.1736 \pm 0.0967$ & $-68.8\% \pm 65.0\%$ & $98.6\% \pm 4.3\%$ & $11.9 / 12.1$ \\
 \bottomrule
-\multicolumn{6}{l}{\textsuperscript{$\dagger$}\footnotesize \hlbox{Under the common evaluation metric, fairness-weighted search selected the same actions as actionability-constrained search.}} \\
-\multicolumn{6}{l}{\textsuperscript{*}\footnotesize Nearest-neighbor baseline on dataset manifold, not a sampled-K optimization method.}
+\multicolumn{7}{l}{\textsuperscript{\#}\footnotesize Actionability-constrained discrete search enforcing $\delta_{\text{study}} \ge 0, \delta_{\text{abs}} \le 0$ under unweighted normalized feature distance.} \\
+\multicolumn{7}{l}{\textsuperscript{$\dagger$}\footnotesize Under the common evaluation metric, fairness-weighted search selected the same actions as actionability-constrained search.} \\
+\multicolumn{7}{l}{\textsuperscript{*}\footnotesize Nearest-neighbor baseline evaluated over top-$K$ distance-ranked training passing instances ($K=700$).}
 \end{tabular}
 \end{table}
+
+\subsection{Statistical significance testing across random seeds}
+\label{subsec:statistical_tests}
+
+To evaluate whether observed cost differences across methods are statistically meaningful, paired two-tailed $t$-tests and Wilcoxon signed-rank tests were performed across the 10 random seed test splits ($S=10$). 
+
+Enforcing directional actionability constraints ($\delta_{\text{study}} \ge 0, \delta_{\text{abs}} \le 0$) significantly increased Low-SES recourse cost from $\mu_L = 0.2248$ (Unconstrained) to $\mu_L = 0.3381$ (Actionable Recourse), representing a statistically significant Actionability Cost Premium ($+0.1133$ mean cost increase; paired $t(9) = 3.72, p = 0.0047$; Wilcoxon $W = 0.0, p = 0.0039$). 
+
+Conversely, cost differences between Actionable Recourse ($\mu_L = 0.3381$) and Proposed Fair DAG-Informed Recourse ($\mu_L = 0.3408$, mean diff $+0.0027$, $t(9) = 1.49, p = 0.1708$; Wilcoxon $W = 5.0, p = 0.5000$) were not statistically significant, confirming that friction weighting produced minimal cost impact under standard candidate grids. Similarly, FACE-like kNN graph recourse ($\mu_L = 0.3795$) yielded a higher mean distance ($+0.0413$), but the difference relative to Actionable Recourse was not statistically significant ($t(9) = 1.83, p = 0.0980$; Wilcoxon $W = 10.0, p = 0.0977$).
 
 \begin{figure}[H]
     \centering
@@ -364,25 +393,26 @@ FACE-like kNN graph recourse\textsuperscript{*} & $0.3795 \pm 0.1462$ & $0.3078 
 
 \subsection{Two-tier benchmark comparison}
 
-Table~\ref{tab:two_tier_benchmark} presents the two-tier comparison structuring empirical baselines versus conceptual frameworks.
+Table~\ref{tab:two_tier_benchmark} presents the two-tier comparison structuring empirical baselines evaluated under identical candidate search budgets ($K=700$) versus conceptual recourse frameworks.
 
 \begin{table}[H]
 \centering
-\caption{Two-Tier Benchmark Comparison Table}
+\caption{Two-Tier Benchmark Comparison Table (Empirical vs Conceptual Frameworks)}
 \label{tab:two_tier_benchmark}
 \small
 \begin{tabularx}{\textwidth}{>{\raggedright\arraybackslash}p{3.2cm} >{\raggedright\arraybackslash}p{2.0cm} >{\raggedright\arraybackslash}p{2.5cm} >{\raggedright\arraybackslash}X}
 \toprule
 \textbf{Method} & \textbf{Category} & \textbf{Execution Status} & \textbf{Implementation Rationale / Requirements} \\
 \midrule
-Unconstrained discrete & Empirical & Evaluated (equal $K$) & Baseline unconstrained search across discrete grid. \\
-Actionability-constrained & Empirical & Evaluated (equal $K$) & Directional bounds ($\delta_{\text{study}} \ge 0, \delta_{\text{abs}} \le 0$). \\
-Proposed Fair Causal & Empirical & Evaluated (equal $K$) & Joint directional actionability + structural friction weighting. \\
-FACE-like kNN recourse & Empirical & Evaluated (Manifold) & Nearest passing neighbor in training manifold. \\
+Unconstrained discrete & Empirical & Evaluated (equal $K=700$) & Baseline unconstrained candidate search across discrete grid. \\
+Actionable Recourse (Ustun) & Empirical & Evaluated (equal $K=700$) & Directional actionability bounds ($\delta_{\text{study}} \ge 0, \delta_{\text{abs}} \le 0$). \\
+Fairness-weighted search & Empirical & Evaluated (equal $K=700$) & Directional bounds + domain difficulty weights ($w_{\text{abs}}=1.5$). \\
+Proposed Fair DAG-Informed & Empirical & Evaluated (equal $K=700$) & Joint directional actionability + structural attendance friction ($w_{\text{abs}}^{\text{Low}}=2.0$). \\
+FACE-like kNN recourse & Empirical & Evaluated (equal $K=700$) & Distance-ranked nearest passing neighbor in training graph manifold. \\
 \midrule
-Ustun Actionable Recourse \cite{Ustun2019} & Conceptual & Not drop-in executable & Requires linear classifier + Integer Linear Programming. \\
-Karimi Causal Recourse \cite{Karimi2021} & Conceptual & Not drop-in executable & Requires fully identified SCM structural equations. \\
-von K\"ugelgen Fair Recourse \cite{vonKugelgen2022} & Conceptual & Not drop-in executable & Requires explicit structural equations for counterfactuals. \\
+Ustun Actionable Recourse \cite{Ustun2019} & Conceptual & Theoretical formulation & Formulation requires linear classifier + Integer Linear Programming solver. \\
+Karimi Causal Recourse \cite{Karimi2021} & Conceptual & Theoretical formulation & Formulation requires fully identified SCM structural equations and $do()$ operators. \\
+von K\"ugelgen Fair Recourse \cite{vonKugelgen2022} & Conceptual & Theoretical formulation & Formulation requires structural equations for counterfactual path-specific fairness. \\
 \bottomrule
 \end{tabularx}
 \end{table}
@@ -436,9 +466,9 @@ The empirical findings clarify the core trade-off between unconstrained numerica
 \hlblock{Our empirical results point to three distinct takeaways:
 First, unconstrained counterfactual search achieves lower numerical feature distance ($\mu_L = 0.2248$) because it exploits educationally invalid shortcut directions (e.g., recommending that a student decrease study time or increase absences if the classifier decision boundary allows it).}
 
-\hlblock{Second, enforcing directional actionability constraints ($\delta_{\text{study}} \ge 0, \delta_{\text{abs}} \le 0$) eliminates these invalid shortcuts; numerical action distance necessarily increases ($\mu_L = 0.3381$), while recourse validity remains high ($95.5\% \pm 4.7\%$).}
+\hlblock{Second, enforcing directional actionability constraints ($\delta_{\text{study}} \ge 0, \delta_{\text{abs}} \le 0$) eliminates these invalid shortcuts; numerical action distance necessarily increases ($\mu_L = 0.3381$), representing a statistically significant Actionability Cost Premium ($p = 0.0047$), while recourse validity remains high ($95.5\% \pm 4.7\%$, $11.5 / 12.1$ failing students).}
 
-\hlblock{Third, under the common group-independent evaluation metric, fairness-weighted search selects the exact same candidate actions as actionability-constrained search ($\mu_L = 0.3381$), while proposed fair causal recourse yields virtually identical feature distance ($\mu_L = 0.3408$). Thus, fairness weighting does not produce an empirical cost reduction over actionability constraints alone in this setup. The primary value of the proposed framework lies in eliminating invalid non-causal shortcuts and ensuring high validity under plausible directional bounds, establishing an empirical baseline for recourse feasibility.}
+\hlblock{Third, under the common group-independent evaluation metric, fairness-weighted search selects the exact same candidate actions as actionability-constrained search ($\mu_L = 0.3381$), while proposed fair DAG-informed recourse yields virtually identical feature distance ($\mu_L = 0.3408, p = 0.1708$). Thus, fairness weighting does not produce an empirical cost reduction over actionability constraints alone in this setup. The primary value of the proposed framework lies in eliminating invalid non-causal shortcuts and ensuring high validity under plausible directional bounds, establishing an empirical baseline for recourse feasibility.}
 
 \hlblock{Furthermore, population flow statistics (Table~\ref{tab:population_flow}) show that High-SES students have a high overall pass rate, yielding a small average number of predicted failures per test fold ($N_{\text{fail,High}} = 3.2$ vs. $N_{\text{fail,Low}} = 8.9$). High-SES recourse cost ($\mu_H = 0.2638 \pm 0.1633$) remains stable across Actionability-constrained, Fairness-weighted, and Proposed methods due to this small sample size, which also makes the group disparity metric ($\text{RFD}$) sensitive to minor fold-level variations rather than reflecting a definitive group inequality claim.}
 
@@ -460,7 +490,7 @@ Several limitations should be acknowledged:
 The dataset analyzed during the current study is available in the UCI Machine Learning Repository (\url{https://archive.ics.uci.edu/dataset/320/student+performance}).
 
 \section*{Code Availability}
-The custom implementation, pipeline script, and evaluation routines are publicly available on GitHub at \url{https://github.com/kadirkesgin/fair-ed} and permanently archived on Zenodo at \hlbox{\url{https://doi.org/10.5281/zenodo.22199775}}.
+The custom implementation, end-to-end execution pipeline script (\texttt{src/run\_experiments.py}), and evaluation routines are publicly available on GitHub at \url{https://github.com/kadirkesgin/fair-ed} and permanently archived on Zenodo (DOI reserved: \url{https://doi.org/10.5281/zenodo.22199775}).
 
 \bibliographystyle{plainnat}
 \bibliography{references}
