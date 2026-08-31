@@ -186,11 +186,11 @@ von K\"ugelgen et al. (2022) \cite{vonKugelgen2022}
 & Theoretical foundation outside education-specific implementation. \\
 
 \textbf{Present study}
-& \textbf{Fair causal recourse in education}
+& \textbf{DAG-informed actionable recourse}
 & \textbf{Yes (DAG)}
 & \textbf{Yes}
 & \textbf{\hlbox{Evaluated (no empirical gain)}}
-& \textbf{Integrates student prediction, DAG constraints, and fair recourse evaluation in a unified framework.} \\
+& \textbf{Integrates student prediction, DAG constraints, and recourse evaluation in a unified framework.} \\
 
 \bottomrule
 \end{tabularx}
@@ -442,13 +442,13 @@ von K\"ugelgen Fair Recourse \cite{vonKugelgen2022} & Conceptual & Theoretical f
 \subsection{Model-based prediction reversal and recourse validity}
 \label{subsec:prediction_reversal}
 
-Figure~\ref{fig:efficacy} shows model-predicted passing probabilities before and after recourse. Pre-recourse mean passing probability for failing students was $0.2866$; post-recourse mean passing probability reached $0.5975$, confirming that recommendations crossed the $0.50$ decision boundary.
+Figure~\ref{fig:prediction_reversal} shows model-predicted passing probabilities before and after recourse. Pre-recourse mean passing probability for failing students was $0.2866$; post-recourse mean passing probability reached $0.5975$, confirming that recommendations crossed the $0.50$ decision boundary.
 
 \begin{figure}[H]
     \centering
     \includegraphics[width=0.85\linewidth]{outputs/figures/fig2_pre_post_probability.png}
     \caption{Model-predicted passing probability before and after simulated recourse.}
-    \label{fig:efficacy}
+    \label{fig:prediction_reversal}
 \end{figure}
 
 \begin{figure}[H]
